@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisis Alokasi Waktu Pembelajaran</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1e3a8a',
+                            900: '#172554',
+                        },
+                        gold: {
+                            500: '#eab308',
+                            600: '#ca8a04',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SheetJS (XLSX) untuk Eksport Excel Formal -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- jsPDF & html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        .toast-enter { animation: slideInRight 0.3s forwards; }
+        .toast-leave { animation: fadeOut 0.3s forwards; }
+
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #1e3a8a;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        .dark .loader { border-color: #334155; border-top-color: #eab308; }
+        @keyframes spin { 0 { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .nav-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #eab308; color: white; }
+        .dark .nav-item.active { border-left-color: #eab308; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+            .print-page-break { page-break-before: always; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 overflow-hidden">
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="fixed inset-0 bg-white/80 dark:bg-gray-900/80 z-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="loader mb-4"></div>
+        <h2 class="text-xl font-semibold text-navy-800 dark:text-gold-500">Memuat Data...</h2>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <div class="flex h-screen w-full">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-navy-900 dark:bg-gray-950 text-gray-300 flex flex-col transition-transform duration-300 absolute md:relative z-40 h-full transform -translate-x-full md:translate-x-0 shadow-xl">
+            <div class="p-5 flex items-center justify-center border-b border-white/10">
+                <i class="fas fa-clock text-gold-500 text-2xl mr-3"></i>
+                <h1 class="text-white font-bold text-lg tracking-wider">WaktuEdu</h1>
+                <button id="close-sidebar" class="md:hidden absolute right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="p-4 flex items-center gap-3 border-b border-white/10">
+                <div class="w-10 h-10 rounded-full bg-gold-500 flex items-center justify-center text-navy-900 font-bold">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <p id="sb-teacher-name" class="text-sm text-white font-semibold truncate">Guru</p>
+                    <p id="sb-school-name" class="text-xs text-gray-400 truncate">Sekolah</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-4 space-y-1">
+                <a href="#" onclick="app.navigate('dashboard')" class="nav-item active flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="dashboard">
+                    <i class="fas fa-home w-6 text-center mr-2"></i> Dashboard
+                </a>
+                <a href="#" onclick="app.navigate('settings')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="settings">
+                    <i class="fas fa-cog w-6 text-center mr-2"></i> Pengaturan
+                </a>
+                <a href="#" onclick="app.navigate('calendar')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="calendar">
+                    <i class="fas fa-calendar-alt w-6 text-center mr-2"></i> Minggu Efektif
+                </a>
+                <a href="#" onclick="app.navigate('subjects')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="subjects">
+                    <i class="fas fa-book w-6 text-center mr-2"></i> Mata Pelajaran
+                </a>
+                <a href="#" onclick="app.navigate('analysis')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="analysis">
+                    <i class="fas fa-chart-pie w-6 text-center mr-2"></i> Analisis Waktu
+                </a>
+                <a href="#" onclick="app.navigate('statistics')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="statistics">
+                    <i class="fas fa-chart-line w-6 text-center mr-2"></i> Statistik
+                </a>
+                <a href="#" onclick="app.navigate('report')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="report">
+                    <i class="fas fa-print w-6 text-center mr-2"></i> Laporan
+                </a>
+            </nav>
+            <div class="p-4 text-xs text-center text-gray-500 border-t border-white/10">
+                &copy; 2026 WaktuEdu App
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col h-full w-full overflow-hidden bg-gray-50 dark:bg-gray-900 relative">
+            <!-- Header -->
+            <header class="h-16 bg-white dark:bg-gray-800 shadow-sm flex items-center justify-between px-4 lg:px-8 z-30">
+                <div class="flex items-center">
+                    <button id="open-sidebar" class="md:hidden text-gray-600 dark:text-gray-300 mr-4 text-xl"><i class="fas fa-bars"></i></button>
+                    <h2 id="page-title" class="text-xl font-semibold text-gray-800 dark:text-white">Dashboard</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="app.toggleDarkMode()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i id="theme-icon" class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Global Warning Banner -->
+            <div class="bg-yellow-50 dark:bg-yellow-900/40 border-b border-yellow-200 dark:border-yellow-800 p-3 px-4 lg:px-8 text-sm text-yellow-800 dark:text-yellow-300 flex items-start shadow-sm z-20 no-print">
+                <i class="fas fa-info-circle mt-0.5 mr-3 text-yellow-600 dark:text-yellow-400 text-lg"></i>
+                <p><strong>Perhatian:</strong> Aplikasi ini hanya menyimpan data secara lokal di dalam memori browser laptop/handphone Anda. Silakan selesaikan secara menyeluruh pengisian data untuk dapat mencetak laporan yang akurat, dan lakukan <button onclick="app.navigate('settings')" class="underline font-semibold hover:text-yellow-900 dark:hover:text-yellow-100">Backup Data (JSON)</button> secara berkala agar aman.</p>
+            </div>
+
+            <!-- Pages Container -->
+            <div class="flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-8" id="pages-container">
+                
+                <!-- PAGE: DASHBOARD -->
+                <section id="page-dashboard" class="page-section hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center">
+                            <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl mr-4"><i class="fas fa-book-open"></i></div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Total Mapel</p>
+                                <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="stat-subjects">0</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center">
+                            <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center text-green-600 dark:text-green-400 text-xl mr-4"><i class="fas fa-calendar-check"></i></div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Total Minggu Efektif</p>
+                                <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="stat-weeks">0</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center">
+                            <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 text-xl mr-4"><i class="fas fa-clock"></i></div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Total JP (1 Tahun)</p>
+                                <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="stat-hours">0</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center">
+                            <div class="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center text-orange-600 dark:text-orange-400 text-xl mr-4"><i class="fas fa-tasks"></i></div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Total Materi/Bab</p>
+                                <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="stat-topics">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Alokasi Waktu per Mata Pelajaran</h3>
+                            <div class="relative h-72 w-full"><canvas id="dashboardChart"></canvas></div>
+                        </div>
+                        <div class="bg-navy-800 rounded-xl shadow-sm p-6 text-white relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="fas fa-calendar-alt text-8xl"></i></div>
+                            <h3 class="text-lg font-semibold mb-4 text-gold-500">Info Akademik</h3>
+                            <div class="space-y-4 relative z-10">
+                                <div>
+                                    <p class="text-sm text-blue-200">Tahun Ajaran</p>
+                                    <p class="text-xl font-bold" id="dash-year">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-blue-200">Semester Aktif di Pengaturan</p>
+                                    <p class="text-xl font-bold" id="dash-semester">-</p>
+                                </div>
+                                <div class="pt-4 border-t border-blue-700">
+                                    <p class="text-sm mb-2">Progress Perencanaan</p>
+                                    <div class="w-full bg-blue-900 rounded-full h-2.5">
+                                      <div class="bg-gold-500 h-2.5 rounded-full" id="dash-progress" style="width: 0%"></div>
+                                    </div>
+                                    <p class="text-xs text-right mt-1 text-blue-200" id="dash-progress-text">0% Selesai</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: PENGATURAN -->
+                <section id="page-settings" class="page-section hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4 border-b pb-2">Profil Sekolah & Guru</h3>
+                            <form id="form-settings" onsubmit="event.preventDefault(); app.saveSettings();">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Sekolah</label>
+                                        <input type="text" id="set-school" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Logo Sekolah</label>
+                                        <input type="url" id="set-logo" placeholder="https://contoh.com/logo.png" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">Kosongkan jika tidak ada logo</p>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Kepala Sekolah</label>
+                                            <input type="text" id="set-principal" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIP Kepala Sekolah</label>
+                                            <input type="text" id="set-principal-nip" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Guru</label>
+                                            <input type="text" id="set-teacher" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIP Guru</label>
+                                            <input type="text" id="set-teacher-nip" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tahun Ajaran</label>
+                                            <input type="text" id="set-year" placeholder="Contoh: 2023/2024" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester Hack</label>
+                                            <select id="set-semester" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
+                                                <option value="1">1 (Ganjil)</option>
+                                                <option value="2">2 (Genap)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="w-full py-2 px-4 bg-navy-800 text-white rounded hover:bg-navy-900 transition-colors shadow mt-4">Simpan Pengaturan</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4 border-b pb-2">Manajemen Data</h3>
+                            <div class="space-y-4">
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Aplikasi menggunakan LocalStorage browser. Backup berkala direkomendasikan.</p>
+                                <button onclick="app.backupData()" class="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center">
+                                    <i class="fas fa-download mr-2"></i> Backup Data (JSON)
+                                </button>
+                                <div class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded p-4 text-center mt-4">
+                                    <input type="file" id="file-restore" accept=".json" onchange="app.restoreData(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                    <div class="text-gray-500 dark:text-gray-400 pointer-events-none">
+                                        <i class="fas fa-upload text-2xl mb-2"></i><br>
+                                        <span class="text-sm">Pilih atau Drag file JSON untuk Restore</span>
+                                    </div>
+                                </div>
+                                <button onclick="app.resetData()" class="w-full py-2 px-4 bg-red-100 text-red-600 border border-red-300 rounded hover:bg-red-200 transition-colors mt-4 text-sm font-semibold">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i> Hapus Semua Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: KALENDER MINGGU EFEKTIF -->
+                <section id="page-calendar" class="page-section hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Pemetaan Minggu Efektif</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Pilih semester, lalu klik kotak minggu untuk mengubah status.</p>
+                            </div>
+                            <div class="flex flex-col md:items-end gap-2">
+                                <select id="filter-calendar-semester" onchange="app.renderCalendar()" class="p-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="1">Semester 1 (Juli - Desember)</option>
+                                    <option value="2">Semester 2 (Januari - Juni)</option>
+                                </select>
+                                <div class="flex items-center gap-4 text-xs font-medium">
+                                    <div class="flex items-center"><span class="w-4 h-4 rounded bg-green-500 mr-1 block"></span> Efektif</div>
+                                    <div class="flex items-center"><span class="w-4 h-4 rounded bg-red-500 mr-1 block"></span> Libur</div>
+                                    <div class="flex items-center"><span class="w-4 h-4 rounded bg-yellow-400 mr-1 block"></span> Ujian/Keg.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- Generated by JS -->
+                        </div>
+                        
+                        <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center border border-blue-100 dark:border-blue-800">
+                            <span class="text-blue-800 dark:text-blue-300 font-semibold">Total Minggu Efektif Semester Ini:</span>
+                            <span id="calc-total-weeks" class="text-2xl font-bold text-navy-800 dark:text-gold-500">0</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: MATA PELAJARAN -->
+                <section id="page-subjects" class="page-section hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div class="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
+                                <div class="relative w-full sm:w-64">
+                                    <input type="text" id="search-subject" placeholder="Cari Mapel..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-navy-500 transition-colors">
+                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                </div>
+                                <select id="filter-subject-semester" onchange="app.renderSubjectsTable()" class="p-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-navy-500">
+                                    <option value="all">Semua Semester</option>
+                                    <option value="1">Semester 1 (Ganjil)</option>
+                                    <option value="2">Semester 2 (Genap)</option>
+                                </select>
+                            </div>
+                            <button onclick="app.openModal('modal-subject')" class="w-full sm:w-auto px-4 py-2 bg-navy-800 hover:bg-navy-900 text-white rounded-lg flex items-center justify-center transition-colors shadow-md shadow-navy-800/20">
+                                <i class="fas fa-plus mr-2"></i> Tambah Mapel
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-sm border-b border-gray-200 dark:border-gray-700">
+                                        <th class="p-4 font-semibold">No</th>
+                                        <th class="p-4 font-semibold">Mata Pelajaran</th>
+                                        <th class="p-4 font-semibold">Kelas (Semester)</th>
+                                        <th class="p-4 font-semibold">JP/Minggu</th>
+                                        <th class="p-4 font-semibold text-center">Minggu Efektif</th>
+                                        <th class="p-4 font-semibold text-center">Total JP</th>
+                                        <th class="p-4 font-semibold text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-subjects" class="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="empty-subjects" class="hidden p-8 text-center">
+                            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239CA3AF' width='64' height='64'><path d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/></svg>" alt="No data" class="mx-auto mb-4 opacity-50">
+                            <p class="text-gray-500 dark:text-gray-400">Belum ada data mata pelajaran.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: ANALISIS WAKTU -->
+                <section id="page-analysis" class="page-section hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pilih Semester & Mata Pelajaran</label>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <select id="filter-analysis-semester" onchange="app.renderAnalysisSelect()" class="w-full sm:w-1/4 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-navy-500 block dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="1">Semester 1 (Ganjil)</option>
+                                <option value="2">Semester 2 (Genap)</option>
+                            </select>
+                            <select id="select-analysis-subject" onchange="app.loadAnalysisData()" class="w-full sm:w-3/4 p-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-navy-500 block dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="">-- Pilih Mata Pelajaran --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="analysis-content" class="hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
+                                <p class="text-sm text-blue-600 dark:text-blue-400 mb-1">Total JP Tersedia</p>
+                                <h4 class="text-2xl font-bold text-blue-800 dark:text-blue-300" id="analysis-total-jp">0 JP</h4>
+                            </div>
+                            <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-100 dark:border-orange-800">
+                                <p class="text-sm text-orange-600 dark:text-orange-400 mb-1">JP Dialokasikan</p>
+                                <h4 class="text-2xl font-bold text-orange-800 dark:text-orange-300" id="analysis-allocated-jp">0 JP</h4>
+                            </div>
+                            <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-100 dark:border-green-800">
+                                <p class="text-sm text-green-600 dark:text-green-400 mb-1">Sisa JP</p>
+                                <h4 class="text-2xl font-bold text-green-800 dark:text-green-300" id="analysis-remaining-jp">0 JP</h4>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">Penggunaan Waktu</span>
+                                <span class="font-medium" id="analysis-progress-text">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                                <div id="analysis-progress-bar" class="h-3 rounded-full bg-navy-600 transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+                                <h3 class="font-semibold text-gray-800 dark:text-white">Daftar Materi / Tujuan Pembelajaran</h3>
+                                <button onclick="app.openModal('modal-topic')" class="px-3 py-1.5 bg-navy-800 hover:bg-navy-900 text-white text-sm rounded flex items-center transition-colors">
+                                    <i class="fas fa-plus mr-1"></i> Tambah Materi
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                            <th class="p-3 font-semibold w-12 text-center">No</th>
+                                            <th class="p-3 font-semibold">Bab / Materi</th>
+                                            <th class="p-3 font-semibold">Tujuan Pembelajaran</th>
+                                            <th class="p-3 font-semibold text-center w-24">Estimasi JP</th>
+                                            <th class="p-3 font-semibold text-center w-24">Realisasi JP</th>
+                                            <th class="p-3 font-semibold text-center w-32">Status</th>
+                                            <th class="p-3 font-semibold text-center w-24">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-topics" class="text-sm text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="empty-topics" class="hidden p-6 text-center">
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Belum ada materi untuk mata pelajaran ini.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: STATISTIK -->
+                <section id="page-statistics" class="page-section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Proporsi JP per Mapel (Total Tahun)</h3>
+                            <div class="relative h-80 w-full flex justify-center">
+                                <canvas id="pieChartMapel"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Status Ketercapaian Alokasi</h3>
+                            <div class="relative h-80 w-full">
+                                <canvas id="barChartStatus"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 lg:col-span-2">
+                             <h3 class="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ringkasan Beban Mengajar (JP/Minggu)</h3>
+                             <div class="relative h-64 w-full">
+                                <canvas id="lineChartLoad"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAGE: LAPORAN -->
+                <section id="page-report" class="page-section hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 no-print">
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Cetak Laporan Analisis Waktu</h3>
+                        <div class="flex flex-col gap-4 mb-6">
+                            <!-- Baris 1: Filter -->
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <select id="filter-report-semester" class="w-full sm:w-1/4 p-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:outline-none">
+                                    <option value="1">Semester 1 (Ganjil)</option>
+                                    <option value="2">Semester 2 (Genap)</option>
+                                </select>
+                                <select id="select-report-subject" class="flex-1 p-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:outline-none">
+                                    <option value="all">Semua Mata Pelajaran (Rekapitulasi + Detail Semua Mapel)</option>
+                                    <!-- Options populated by JS -->
+                                </select>
+                            </div>
+                            <!-- Baris 2: Tombol -->
+                            <div class="flex flex-col sm:flex-row gap-4 justify-end mt-2">
+                                <button onclick="app.printReport()" class="w-full sm:w-auto px-6 py-2.5 bg-navy-800 text-white rounded-lg hover:bg-navy-900 transition flex items-center justify-center font-medium shadow-sm">
+                                    <i class="fas fa-print mr-2 text-lg"></i> Cetak / PDF
+                                </button>
+                                <button onclick="app.exportExcel()" class="w-full sm:w-auto px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center font-medium shadow-sm">
+                                    <i class="fas fa-file-excel mr-2 text-lg"></i> Export Excel
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-4">Pratinjau laporan di bawah ini akan disesuaikan dengan format A4 saat dicetak.</p>
+                    </div>
+
+                    <!-- Print Container -->
+                    <div id="print-area" class="mt-6 bg-white text-black p-8 shadow-lg max-w-4xl mx-auto rounded overflow-hidden">
+                        <div class="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
+                            <div class="w-24 h-24 flex items-center justify-center shrink-0">
+                                <img id="print-logo" src="" alt="Logo" class="max-h-full max-w-full hidden">
+                            </div>
+                            <div class="flex-1 text-center px-4">
+                                <h2 class="text-2xl font-bold uppercase" id="print-school-name">NAMA SEKOLAH</h2>
+                                <p class="text-sm">ALAMAT SEKOLAH CONTOH, TELP: 123456</p>
+                            </div>
+                            <div class="w-24 h-24 shrink-0"></div> <!-- Spacer -->
+                        </div>
+                        
+                        <h3 class="text-xl font-bold text-center mb-6 underline">ANALISIS ALOKASI WAKTU PEMBELAJARAN</h3>
+                        
+                        <div class="flex justify-between mb-6 text-sm">
+                            <div>
+                                <table class="mb-2">
+                                    <tr><td class="w-32 font-semibold">Mata Pelajaran</td><td class="w-4">:</td><td id="print-mapel-name">Semua Mapel</td></tr>
+                                    <tr><td class="font-semibold">Kelas</td><td>:</td><td id="print-kelas">-</td></tr>
+                                </table>
+                            </div>
+                            <div>
+                                <table class="mb-2">
+                                    <tr><td class="w-32 font-semibold">Semester</td><td class="w-4">:</td><td id="print-semester">Ganjil</td></tr>
+                                    <tr><td class="font-semibold">Tahun Ajaran</td><td>:</td><td id="print-year">2023/2024</td></tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Data Table (Injected by JS) -->
+                        <div id="print-content" class="min-h-[400px]"></div>
+
+                        <div class="mt-16 flex justify-between px-8 sm:px-16">
+                            <div class="text-center w-auto min-w-[200px]">
+                                <p class="mb-20 leading-relaxed">Mengetahui,<br>Kepala Sekolah</p>
+                                <p class="font-bold underline uppercase tracking-wide" id="print-principal-name">(...................................)</p>
+                                <p class="mt-1 text-sm">NIP. <span id="print-principal-nip"></span></p>
+                            </div>
+                            <div class="text-center w-auto min-w-[200px]">
+                                <p class="mb-20 leading-relaxed"><br>Guru Mata Pelajaran,</p>
+                                <p class="font-bold underline uppercase tracking-wide" id="print-teacher-name">Nama Guru</p>
+                                <p class="mt-1 text-sm">NIP. <span id="print-teacher-nip"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Subject -->
+    <div id="modal-subject" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center backdrop-blur-sm opacity-0 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white" id="modal-subject-title">Tambah Mata Pelajaran</h3>
+                <button onclick="app.closeModal('modal-subject')" class="text-gray-400 hover:text-gray-600 dark:hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="form-subject" onsubmit="event.preventDefault(); app.saveSubject();" class="p-5">
+                <input type="hidden" id="subj-id">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 dark:text-gray-300">Nama Mata Pelajaran</label>
+                        <input type="text" id="subj-name" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 dark:text-gray-300">Kelas</label>
+                            <input type="text" id="subj-class" required placeholder="Contoh: VII A" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 dark:text-gray-300">Semester</label>
+                            <select id="subj-semester" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                                <option value="1">1 (Ganjil)</option>
+                                <option value="2">2 (Genap)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 dark:text-gray-300">JP / Minggu</label>
+                            <input type="number" id="subj-jp" required min="1" max="10" value="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 dark:text-gray-300">Guru Pengampu</label>
+                            <input type="text" id="subj-teacher" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none" placeholder="Opsional">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="app.closeModal('modal-subject')" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-navy-800 text-white rounded hover:bg-navy-900">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Topic -->
+    <div id="modal-topic" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center backdrop-blur-sm opacity-0 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white" id="modal-topic-title">Tambah Materi / Tujuan Pembelajaran</h3>
+                <button onclick="app.closeModal('modal-topic')" class="text-gray-400 hover:text-gray-600 dark:hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="form-topic" onsubmit="event.preventDefault(); app.saveTopic();" class="p-5">
+                <input type="hidden" id="topic-id">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 dark:text-gray-300">Tujuan Pembelajaran / Kode</label>
+                        <input type="text" id="topic-kd" placeholder="Contoh: TP 1 / 3.1" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 dark:text-gray-300">Nama Bab / Materi Pokok</label>
+                        <input type="text" id="topic-name" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-100 dark:border-blue-800">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-blue-800 dark:text-blue-300">Estimasi Alokasi (JP)</label>
+                            <input type="number" id="topic-est" required min="1" class="w-full p-2 border border-blue-200 rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-blue-800 dark:text-blue-300">Realisasi (JP)</label>
+                            <input type="number" id="topic-real" required min="0" value="0" class="w-full p-2 border border-blue-200 rounded bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-blue-500 outline-none">
+                            <p class="text-[10px] mt-1 text-gray-500">*Isi 0 saat perencanaan.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="app.closeModal('modal-topic')" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-navy-800 text-white rounded hover:bg-navy-900">Simpan Materi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            data: {
+                settings: {
+                    schoolName: "SMP Negeri 1 Contoh",
+                    logoUrl: "",
+                    principalName: "H. Ahmad, M.Pd",
+                    principalNip: "19700101 199512 1 001",
+                    teacherName: "Budi Santoso, S.Pd",
+                    teacherNip: "19800101 200501 1 002",
+                    academicYear: "2023/2024",
+                    semester: "1",
+                    theme: "light"
+                },
+                subjects: [],
+                topics: [],
+                calendar: {
+                    '1': { totalEffectiveWeeks: 0, months: [] },
+                    '2': { totalEffectiveWeeks: 0, months: [] }
+                }
+            },
+            currentSubjectId: null,
+            charts: {},
+
+            init: function() {
+                this.loadData();
+                this.initCalendarData();
+                if(this.data.subjects.length === 0) this.generateDummyData();
+                
+                this.applyTheme();
+                this.updateUIProfile();
+                this.syncGlobalSemester();
+                
+                setTimeout(() => {
+                    document.getElementById('loading').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loading').style.display = 'none', 300);
+                    this.navigate('dashboard');
+                }, 800);
+
+                document.getElementById('open-sidebar').addEventListener('click', () => { document.getElementById('sidebar').classList.remove('-translate-x-full'); });
+                document.getElementById('close-sidebar').addEventListener('click', () => { document.getElementById('sidebar').classList.add('-translate-x-full'); });
+                document.getElementById('search-subject').addEventListener('input', () => this.renderSubjectsTable());
+                
+                // Add report select listener
+                document.getElementById('filter-report-semester').addEventListener('change', () => this.renderReportSelect());
+                document.getElementById('select-report-subject').addEventListener('change', (e) => {
+                    const sem = document.getElementById('filter-report-semester').value;
+                    this.buildReportHTML(e.target.value, sem);
+                });
+            },
+
+            navigate: function(pageId) {
+                document.querySelectorAll('.nav-item').forEach(el => {
+                    el.classList.remove('active', 'bg-white/10');
+                    if(el.dataset.target === pageId) el.classList.add('active', 'bg-white/10');
+                });
+
+                document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+                document.getElementById('page-' + pageId).classList.remove('hidden');
+
+                if(window.innerWidth < 768) document.getElementById('sidebar').classList.add('-translate-x-full');
+
+                const titles = { 'dashboard': 'Dashboard', 'subjects': 'Data Mata Pelajaran', 'analysis': 'Analisis Alokasi Waktu', 'calendar': 'Kalender Minggu Efektif', 'statistics': 'Statistik & Visualisasi', 'report': 'Cetak Laporan', 'settings': 'Pengaturan Aplikasi' };
+                document.getElementById('page-title').textContent = titles[pageId];
+
+                if(pageId === 'dashboard') this.renderDashboard();
+                if(pageId === 'subjects') this.renderSubjectsTable();
+                if(pageId === 'analysis') this.renderAnalysisSelect();
+                if(pageId === 'calendar') this.renderCalendar();
+                if(pageId === 'statistics') this.renderStatistics();
+                if(pageId === 'report') this.renderReportSelect();
+                if(pageId === 'settings') this.fillSettingsForm();
+            },
+
+            loadData: function() {
+                const stored = localStorage.getItem('waktuedu_data');
+                if (stored) {
+                    try {
+                        let parsed = JSON.parse(stored);
+                        // Migration format calendar & subject lama ke format semester
+                        if (parsed.settings) {
+                            if (parsed.settings.semester === 'Ganjil') parsed.settings.semester = '1';
+                            if (parsed.settings.semester === 'Genap') parsed.settings.semester = '2';
+                        }
+                        if (parsed.calendar) {
+                            if (Array.isArray(parsed.calendar.months)) {
+                                let oldMonths = parsed.calendar.months;
+                                let oldTotal = parsed.calendar.totalEffectiveWeeks;
+                                parsed.calendar = {
+                                    '1': { totalEffectiveWeeks: oldTotal, months: oldMonths },
+                                    '2': { totalEffectiveWeeks: 0, months: [] }
+                                };
+                            }
+                        }
+                        if (parsed.subjects) {
+                            parsed.subjects.forEach(s => { if(!s.semester) s.semester = '1'; });
+                        }
+                        this.data = parsed;
+                    } catch (e) {
+                        console.error("Error parsing localstorage data");
+                    }
+                }
+            },
+            saveData: function() { localStorage.setItem('waktuedu_data', JSON.stringify(this.data)); },
+            
+            generateDummyData: function() {
+                this.data.subjects = [
+                    { id: Date.now()+1, name: "Matematika", class: "VII A", semester: '1', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
+                    { id: Date.now()+2, name: "Matematika", class: "VII A", semester: '2', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
+                    { id: Date.now()+3, name: "IPA", class: "VII A", semester: '1', teacher: "", jpPerWeek: 5, effWeeks: 18, totalJp: 90 }
+                ];
+                let sId = this.data.subjects[0].id;
+                this.data.topics = [
+                    { id: Date.now()+4, subjectId: sId, kd: "TP 1", name: "Bilangan Bulat dan Pecahan", estJp: 16, realJp: 16 },
+                    { id: Date.now()+5, subjectId: sId, kd: "TP 2", name: "Himpunan", estJp: 12, realJp: 10 }
+                ];
+                this.calculateEffectiveWeeks('1');
+                this.calculateEffectiveWeeks('2');
+                this.saveData();
+            },
+
+            showToast: function(msg, type='success') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                const colors = type === 'success' ? 'bg-green-500' : (type === 'error' ? 'bg-red-500' : 'bg-blue-500');
+                const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                toast.className = `${colors} text-white px-4 py-3 rounded shadow-lg flex items-center toast-enter text-sm font-medium`;
+                toast.innerHTML = `<i class="fas ${icon} mr-2 text-lg"></i> ${msg}`;
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.replace('toast-enter', 'toast-leave');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            },
+
+            openModal: function(id) {
+                const modal = document.getElementById(id);
+                modal.classList.remove('hidden'); void modal.offsetWidth;
+                modal.classList.remove('opacity-0'); modal.firstElementChild.classList.remove('scale-95');
+                if(id === 'modal-subject') document.getElementById('form-subject').reset();
+                if(id === 'modal-topic') document.getElementById('form-topic').reset();
+            },
+            closeModal: function(id) {
+                const modal = document.getElementById(id);
+                modal.classList.add('opacity-0'); modal.firstElementChild.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            },
+            toggleDarkMode: function() {
+                const html = document.documentElement;
+                if(html.classList.contains('dark')) {
+                    html.classList.remove('dark'); this.data.settings.theme = 'light';
+                    document.getElementById('theme-icon').className = 'fas fa-moon';
+                } else {
+                    html.classList.add('dark'); this.data.settings.theme = 'dark';
+                    document.getElementById('theme-icon').className = 'fas fa-sun';
+                }
+                this.saveData();
+                if(!document.getElementById('page-dashboard').classList.contains('hidden')) this.renderDashboard();
+                if(!document.getElementById('page-statistics').classList.contains('hidden')) this.renderStatistics();
+            },
+            applyTheme: function() {
+                if(this.data.settings.theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    document.getElementById('theme-icon').className = 'fas fa-sun';
+                }
+            },
+            updateUIProfile: function() {
+                const s = this.data.settings;
+                document.getElementById('sb-teacher-name').textContent = s.teacherName;
+                document.getElementById('sb-school-name').textContent = s.schoolName;
+            },
+
+            syncGlobalSemester: function() {
+                const sem = this.data.settings.semester || '1';
+                const year = this.data.settings.academicYear;
+                
+                // Sync dropdown filters with active settings
+                const semEls = ['filter-analysis-semester', 'filter-calendar-semester', 'filter-report-semester', 'filter-subject-semester', 'subj-semester'];
+                semEls.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = sem;
+                });
+                
+                if (document.getElementById('dash-semester')) document.getElementById('dash-semester').textContent = sem === '1' ? '1 (Ganjil)' : '2 (Genap)';
+                if (document.getElementById('dash-year')) document.getElementById('dash-year').textContent = year;
+            },
+
+            renderDashboard: function() {
+                const sem = this.data.settings.semester || '1';
+                // Filter dashboard strictly by active semester
+                const s = this.data.subjects.filter(sub => sub.semester === sem);
+                const sIds = s.map(sub => sub.id);
+                const t = this.data.topics.filter(top => sIds.includes(top.subjectId));
+                
+                let totalJp = 0; s.forEach(sub => totalJp += sub.totalJp);
+                
+                const activeWeeks = this.data.calendar[sem]?.totalEffectiveWeeks || 0;
+
+                document.getElementById('stat-subjects').textContent = s.length;
+                document.getElementById('stat-weeks').textContent = activeWeeks;
+                document.getElementById('stat-hours').textContent = totalJp;
+                document.getElementById('stat-topics').textContent = t.length;
+
+                document.getElementById('dash-year').textContent = this.data.settings.academicYear;
+                document.getElementById('dash-semester').textContent = sem === '1' ? '1 (Ganjil)' : '2 (Genap)';
+
+                let progress = s.length > 0 ? (t.length / (s.length * 5)) * 100 : 0;
+                progress = Math.min(progress, 100).toFixed(0);
+                document.getElementById('dash-progress').style.width = progress + '%';
+                document.getElementById('dash-progress-text').textContent = progress + '% Selesai Pemetaan';
+
+                this.drawDashboardChart(s);
+            },
+            drawDashboardChart: function(activeSubjects) {
+                const ctx = document.getElementById('dashboardChart').getContext('2d');
+                if(this.charts.dash) this.charts.dash.destroy();
+
+                const isDark = document.documentElement.classList.contains('dark');
+                const textColor = isDark ? '#e5e7eb' : '#374151';
+                
+                const labels = activeSubjects.map(s => `${s.name.substring(0,10)}`);
+                const data = activeSubjects.map(s => s.totalJp);
+
+                this.charts.dash = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: labels, datasets: [{ label: 'Total JP', data: data, backgroundColor: 'rgba(30, 58, 138, 0.8)', borderColor: '#1e3a8a', borderWidth: 1, borderRadius: 4 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: isDark ? '#374151' : '#f3f4f6' } }, x: { ticks: { color: textColor }, grid: { display: false } } }
+                    }
+                });
+            },
+
+            renderSubjectsTable: function() {
+                const filterText = document.getElementById('search-subject').value.toLowerCase();
+                const filterSem = document.getElementById('filter-subject-semester').value;
+                const tbody = document.getElementById('table-subjects');
+                const emptyState = document.getElementById('empty-subjects');
+                tbody.innerHTML = '';
+                
+                let filtered = this.data.subjects;
+                if (filterSem !== 'all') {
+                    filtered = filtered.filter(s => s.semester === filterSem);
+                }
+                if (filterText) {
+                    filtered = filtered.filter(s => s.name.toLowerCase().includes(filterText) || s.class.toLowerCase().includes(filterText));
+                }
+
+                if(filtered.length === 0) {
+                    emptyState.classList.remove('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    filtered.forEach((s, index) => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
+                        tr.innerHTML = `
+                            <td class="p-4">${index + 1}</td>
+                            <td class="p-4 font-medium">${s.name}</td>
+                            <td class="p-4">${s.class} <br><span class="text-xs text-gray-500 dark:text-gray-400">Smt ${s.semester}</span></td>
+                            <td class="p-4">${s.jpPerWeek}</td>
+                            <td class="p-4 text-center">
+                                <span class="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs px-2 py-1 rounded-full">${s.effWeeks} mgg</span>
+                            </td>
+                            <td class="p-4 text-center font-bold text-navy-800 dark:text-gold-500">${s.totalJp}</td>
+                            <td class="p-4 text-center">
+                                <button onclick="app.editSubject(${s.id})" class="text-blue-500 hover:text-blue-700 mx-1 p-1"><i class="fas fa-edit"></i></button>
+                                <button onclick="app.deleteSubject(${s.id})" class="text-red-500 hover:text-red-700 mx-1 p-1"><i class="fas fa-trash"></i></button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            },
+            saveSubject: function() {
+                const id = document.getElementById('subj-id').value;
+                const name = document.getElementById('subj-name').value;
+                const cls = document.getElementById('subj-class').value;
+                const semester = document.getElementById('subj-semester').value;
+                const jp = parseInt(document.getElementById('subj-jp').value);
+                const teacher = document.getElementById('subj-teacher').value;
+                
+                const effWeeks = this.data.calendar[semester].totalEffectiveWeeks || 18;
+                const totalJp = jp * effWeeks;
+
+                if (id) {
+                    const idx = this.data.subjects.findIndex(s => s.id == id);
+                    if(idx > -1) {
+                        this.data.subjects[idx] = { ...this.data.subjects[idx], name, class: cls, semester, jpPerWeek: jp, teacher, totalJp, effWeeks };
+                        this.showToast('Mata pelajaran diperbarui');
+                    }
+                } else {
+                    this.data.subjects.push({ id: Date.now(), name, class: cls, semester, jpPerWeek: jp, teacher, totalJp, effWeeks });
+                    this.showToast('Mata pelajaran ditambahkan');
+                }
+                
+                this.saveData();
+                this.closeModal('modal-subject');
+                this.renderSubjectsTable();
+            },
+            editSubject: function(id) {
+                const s = this.data.subjects.find(s => s.id == id);
+                if(s) {
+                    document.getElementById('modal-subject-title').textContent = 'Edit Mata Pelajaran';
+                    document.getElementById('subj-id').value = s.id;
+                    document.getElementById('subj-name').value = s.name;
+                    document.getElementById('subj-class').value = s.class;
+                    document.getElementById('subj-semester').value = s.semester || '1';
+                    document.getElementById('subj-jp').value = s.jpPerWeek;
+                    document.getElementById('subj-teacher').value = s.teacher;
+                    this.openModal('modal-subject');
+                }
+            },
+            deleteSubject: function(id) {
+                if(confirm('Hapus mata pelajaran ini beserta semua analisis materinya?')) {
+                    this.data.subjects = this.data.subjects.filter(s => s.id != id);
+                    this.data.topics = this.data.topics.filter(t => t.subjectId != id);
+                    this.saveData();
+                    this.renderSubjectsTable();
+                    this.showToast('Data dihapus', 'success');
+                }
+            },
+
+            // --- ANALYSIS ---
+            renderAnalysisSelect: function() {
+                const sem = document.getElementById('filter-analysis-semester').value;
+                const sel = document.getElementById('select-analysis-subject');
+                sel.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+                this.data.subjects.filter(s => s.semester === sem).forEach(s => {
+                    sel.innerHTML += `<option value="${s.id}">${s.name} - ${s.class}</option>`;
+                });
+                document.getElementById('analysis-content').classList.add('hidden');
+                this.currentSubjectId = null;
+            },
+            loadAnalysisData: function() {
+                const subId = document.getElementById('select-analysis-subject').value;
+                if(!subId) {
+                    document.getElementById('analysis-content').classList.add('hidden');
+                    this.currentSubjectId = null;
+                    return;
+                }
+                this.currentSubjectId = parseInt(subId);
+                document.getElementById('analysis-content').classList.remove('hidden');
+                this.renderTopics();
+            },
+            renderTopics: function() {
+                if(!this.currentSubjectId) return;
+                const subject = this.data.subjects.find(s => s.id === this.currentSubjectId);
+                const topics = this.data.topics.filter(t => t.subjectId === this.currentSubjectId);
+                
+                let allocated = 0; topics.forEach(t => allocated += t.estJp);
+                const remaining = subject.totalJp - allocated;
+                const percent = subject.totalJp > 0 ? (allocated / subject.totalJp) * 100 : 0;
+
+                document.getElementById('analysis-total-jp').textContent = `${subject.totalJp} JP`;
+                document.getElementById('analysis-allocated-jp').textContent = `${allocated} JP`;
+                
+                const remEl = document.getElementById('analysis-remaining-jp');
+                remEl.textContent = `${remaining} JP`;
+                if(remaining < 0) { remEl.classList.add('text-red-600'); remEl.classList.remove('text-green-800'); }
+                else { remEl.classList.remove('text-red-600'); }
+
+                document.getElementById('analysis-progress-bar').style.width = Math.min(percent, 100) + '%';
+                document.getElementById('analysis-progress-text').textContent = percent.toFixed(1) + '%';
+                if(percent > 100) document.getElementById('analysis-progress-bar').classList.replace('bg-navy-600', 'bg-red-500');
+                else document.getElementById('analysis-progress-bar').classList.replace('bg-red-500', 'bg-navy-600');
+
+                const tbody = document.getElementById('table-topics');
+                const empty = document.getElementById('empty-topics');
+                tbody.innerHTML = '';
+
+                if(topics.length === 0) {
+                    empty.classList.remove('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    topics.forEach((t, i) => {
+                        let statusHtml = '';
+                        if(t.realJp === 0) statusHtml = '<span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded dark:bg-gray-700 dark:text-gray-400">Direncanakan</span>';
+                        else if (t.realJp === t.estJp) statusHtml = '<span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded dark:bg-green-900/40 dark:text-green-400">Sesuai Target</span>';
+                        else if (t.realJp > t.estJp) statusHtml = `<span class="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded dark:bg-orange-900/40 dark:text-orange-400" title="Lebih ${t.realJp-t.estJp} JP">Melebihi</span>`;
+                        else statusHtml = `<span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded dark:bg-red-900/40 dark:text-red-400" title="Kurang ${t.estJp-t.realJp} JP">Kurang</span>`;
+
+                        tbody.innerHTML += `
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td class="p-3 text-center">${i+1}</td>
+                                <td class="p-3 font-medium">${t.name}</td>
+                                <td class="p-3">${t.kd}</td>
+                                <td class="p-3 text-center font-semibold text-blue-600 dark:text-blue-400">${t.estJp}</td>
+                                <td class="p-3 text-center font-semibold">${t.realJp}</td>
+                                <td class="p-3 text-center">${statusHtml}</td>
+                                <td class="p-3 text-center">
+                                    <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 mx-1 p-1"><i class="fas fa-edit"></i></button>
+                                    <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 mx-1 p-1"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            },
+            saveTopic: function() {
+                if(!this.currentSubjectId) { this.showToast('Pilih mata pelajaran terlebih dahulu', 'error'); return; }
+                const id = document.getElementById('topic-id').value;
+                const kd = document.getElementById('topic-kd').value;
+                const name = document.getElementById('topic-name').value;
+                const estJp = parseInt(document.getElementById('topic-est').value);
+                const realJp = parseInt(document.getElementById('topic-real').value || 0);
+
+                if(id) {
+                    const idx = this.data.topics.findIndex(t => t.id == id);
+                    if(idx > -1) this.data.topics[idx] = { ...this.data.topics[idx], kd, name, estJp, realJp };
+                    this.showToast('Materi diperbarui');
+                } else {
+                    this.data.topics.push({ id: Date.now(), subjectId: this.currentSubjectId, kd, name, estJp, realJp });
+                    this.showToast('Materi ditambahkan');
+                }
+                this.saveData(); this.closeModal('modal-topic'); this.renderTopics();
+            },
+            editTopic: function(id) {
+                const t = this.data.topics.find(t => t.id == id);
+                if(t) {
+                    document.getElementById('modal-topic-title').textContent = 'Edit Materi';
+                    document.getElementById('topic-id').value = t.id;
+                    document.getElementById('topic-kd').value = t.kd;
+                    document.getElementById('topic-name').value = t.name;
+                    document.getElementById('topic-est').value = t.estJp;
+                    document.getElementById('topic-real').value = t.realJp;
+                    this.openModal('modal-topic');
+                }
+            },
+            deleteTopic: function(id) {
+                if(confirm('Hapus materi ini?')) {
+                    this.data.topics = this.data.topics.filter(t => t.id != id);
+                    this.saveData(); this.renderTopics(); this.showToast('Materi dihapus', 'success');
+                }
+            },
+
+            // --- CALENDAR ---
+            initCalendarData: function() {
+                const genMonths = (names) => names.map(m => {
+                    let w = []; for(let i=1; i<=4; i++) w.push({ id: `${m}-w${i}`, label: `Mg ${i}`, status: 'efektif' });
+                    return { name: m, weeks: w };
+                });
+
+                if (!this.data.calendar) {
+                    this.data.calendar = { '1': null, '2': null };
+                }
+
+                if (!this.data.calendar['1'] || !this.data.calendar['1'].months || this.data.calendar['1'].months.length === 0) {
+                    this.data.calendar['1'] = { 
+                        totalEffectiveWeeks: 0, 
+                        months: genMonths(['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']) 
+                    };
+                }
+
+                if (!this.data.calendar['2'] || !this.data.calendar['2'].months || this.data.calendar['2'].months.length === 0) {
+                    this.data.calendar['2'] = { 
+                        totalEffectiveWeeks: 0, 
+                        months: genMonths(['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni']) 
+                    };
+                }
+                
+                this.calculateEffectiveWeeks('1');
+                this.calculateEffectiveWeeks('2');
+            },
+            renderCalendar: function() {
+                const sem = document.getElementById('filter-calendar-semester').value;
+                const grid = document.getElementById('calendar-grid');
+                grid.innerHTML = '';
+                
+                const statusColors = {
+                    'efektif': 'bg-green-100 hover:bg-green-200 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-800',
+                    'libur': 'bg-red-100 hover:bg-red-200 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800',
+                    'ujian': 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-400 dark:border-yellow-800'
+                };
+
+                this.data.calendar[sem].months.forEach((month, mIdx) => {
+                    let html = `<div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex flex-col justify-between">
+                                    <div>
+                                        <h4 class="font-semibold text-center mb-3 text-navy-800 dark:text-gold-500 border-b border-gray-200 dark:border-gray-600 pb-1">${month.name}</h4>
+                                        <div class="grid grid-cols-4 gap-2 mb-3">`;
+                    month.weeks.forEach((week, wIdx) => {
+                        const colorClass = statusColors[week.status];
+                        html += `<div onclick="app.toggleWeekStatus('${sem}', ${mIdx}, ${wIdx})" class="cursor-pointer border rounded py-2 text-center text-xs font-medium transition-colors select-none ${colorClass}" title="Klik untuk ubah status">${week.label}</div>`;
+                    });
+                    html += `           </div>
+                                    </div>
+                                    <div class="text-center mt-2 border-t border-gray-200 dark:border-gray-600 pt-2">
+                                        <button onclick="app.addWeek('${sem}', ${mIdx})" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-semibold"><i class="fas fa-plus"></i> Tambah Minggu</button>
+                                    </div>
+                                </div>`;
+                    grid.innerHTML += html;
+                });
+                
+                document.getElementById('calc-total-weeks').textContent = this.data.calendar[sem].totalEffectiveWeeks;
+            },
+            toggleWeekStatus: function(sem, mIdx, wIdx) {
+                const statuses = ['efektif', 'libur', 'ujian'];
+                let current = this.data.calendar[sem].months[mIdx].weeks[wIdx].status;
+                let nextIdx = (statuses.indexOf(current) + 1) % statuses.length;
+                this.data.calendar[sem].months[mIdx].weeks[wIdx].status = statuses[nextIdx];
+                this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Status minggu diperbarui');
+            },
+            addWeek: function(sem, mIdx) {
+                const month = this.data.calendar[sem].months[mIdx];
+                const newNum = month.weeks.length + 1;
+                month.weeks.push({ id: `${month.name}-w${newNum}`, label: `Mg ${newNum}`, status: 'efektif' });
+                this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Minggu berhasil ditambahkan');
+            },
+            calculateEffectiveWeeks: function(semester) {
+                if(!semester) { this.calculateEffectiveWeeks('1'); this.calculateEffectiveWeeks('2'); return; }
+                let total = 0;
+                this.data.calendar[semester].months.forEach(m => m.weeks.forEach(w => { if(w.status === 'efektif') total++; }));
+                this.data.calendar[semester].totalEffectiveWeeks = total;
+                
+                this.data.subjects.filter(s => s.semester === semester).forEach(s => {
+                    s.effWeeks = total; s.totalJp = s.jpPerWeek * total;
+                });
+                this.saveData();
+            },
+
+            // --- STATISTICS ---
+            renderStatistics: function() {
+                const isDark = document.documentElement.classList.contains('dark');
+                const textColor = isDark ? '#e5e7eb' : '#374151';
+                const gridColor = isDark ? '#374151' : '#f3f4f6';
+                
+                const labelsMapel = this.data.subjects.map(s => `${s.name} (Smt ${s.semester})`);
+                const dataMapel = this.data.subjects.map(s => s.totalJp);
+                const bgColors = ['#1e3a8a', '#eab308', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
+
+                const ctxPie = document.getElementById('pieChartMapel').getContext('2d');
+                if(this.charts.pie) this.charts.pie.destroy();
+                this.charts.pie = new Chart(ctxPie, { type: 'doughnut', data: { labels: labelsMapel, datasets: [{ data: dataMapel, backgroundColor: bgColors, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels:{color: textColor} } } } });
+
+                let dataAlloc = [], dataRemain = [];
+                this.data.subjects.forEach(s => {
+                    let alloc = 0; this.data.topics.filter(t => t.subjectId === s.id).forEach(t => alloc += t.estJp);
+                    dataAlloc.push(alloc); dataRemain.push(s.totalJp - alloc);
+                });
+
+                const ctxBar = document.getElementById('barChartStatus').getContext('2d');
+                if(this.charts.bar) this.charts.bar.destroy();
+                this.charts.bar = new Chart(ctxBar, { type: 'bar', data: { labels: labelsMapel, datasets: [{ label: 'Terprogram (JP)', data: dataAlloc, backgroundColor: '#10b981' }, { label: 'Sisa Waktu (JP)', data: dataRemain, backgroundColor: '#f59e0b' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { color: textColor }, grid: {display:false} }, y: { stacked: true, ticks: { color: textColor }, grid: { color: gridColor} } }, plugins: { legend: { labels: { color: textColor } } } } });
+
+                const dataLoad = this.data.subjects.map(s => s.jpPerWeek);
+                const ctxLine = document.getElementById('lineChartLoad').getContext('2d');
+                if(this.charts.line) this.charts.line.destroy();
+                this.charts.line = new Chart(ctxLine, { type: 'line', data: { labels: labelsMapel, datasets: [{ label: 'Beban Mengajar (JP/Minggu)', data: dataLoad, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: textColor }, grid: {display:false} }, y: { beginAtZero: true, ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor} } }, plugins: { legend: { display: false } } } });
+            },
+
+            // --- REPORT / CETAK ---
+            renderReportSelect: function() {
+                const sem = document.getElementById('filter-report-semester').value;
+                const sel = document.getElementById('select-report-subject');
+                sel.innerHTML = '<option value="all">Semua Mata Pelajaran (Rekapitulasi + Detail Semua Mapel)</option>';
+                this.data.subjects.filter(s => s.semester === sem).forEach(s => {
+                    sel.innerHTML += `<option value="${s.id}">${s.name} - ${s.class}</option>`;
+                });
+                
+                document.getElementById('print-school-name').textContent = this.data.settings.schoolName;
+                document.getElementById('print-teacher-name').textContent = this.data.settings.teacherName;
+                document.getElementById('print-teacher-nip').textContent = this.data.settings.teacherNip || '_________________';
+                document.getElementById('print-year').textContent = this.data.settings.academicYear;
+                
+                document.getElementById('print-principal-name').textContent = this.data.settings.principalName || '(...................................)';
+                document.getElementById('print-principal-nip').textContent = this.data.settings.principalNip || '_________________';
+                
+                const logoImg = document.getElementById('print-logo');
+                if (this.data.settings.logoUrl) {
+                    logoImg.src = this.data.settings.logoUrl;
+                    logoImg.classList.remove('hidden');
+                } else {
+                    logoImg.classList.add('hidden');
+                }
+                
+                this.buildReportHTML('all', sem);
+            },
+            buildReportHTML: function(filter, sem) {
+                const container = document.getElementById('print-content');
+                let html = '';
+                document.getElementById('print-semester').textContent = sem === '1' ? '1 (Ganjil)' : '2 (Genap)';
+
+                if (filter === 'all') {
+                    document.getElementById('print-mapel-name').textContent = 'Semua Mata Pelajaran';
+                    document.getElementById('print-kelas').textContent = 'Semua Kelas';
+                    
+                    // 1. REKAPITULASI UTAMA
+                    html += `
+                        <div class="mb-8">
+                            <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">I. REKAPITULASI ALOKASI WAKTU SEMESTER</h4>
+                            <table class="w-full border-collapse border border-black text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="border border-black p-2 w-12 text-center">No</th>
+                                        <th class="border border-black p-2 text-left">Mata Pelajaran</th>
+                                        <th class="border border-black p-2 w-24 text-center">Kelas</th>
+                                        <th class="border border-black p-2 w-24 text-center">Mg Efektif</th>
+                                        <th class="border border-black p-2 w-24 text-center">Total JP</th>
+                                        <th class="border border-black p-2 w-28 text-center">JP Terprogram</th>
+                                        <th class="border border-black p-2 w-24 text-center">Sisa JP</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                    
+                    const filteredSubjects = this.data.subjects.filter(s => s.semester === sem);
+                    if (filteredSubjects.length === 0) {
+                        html += `<tr><td colspan="7" class="border border-black p-4 text-center text-gray-500">Belum ada data mata pelajaran pada semester ini.</td></tr>`;
+                    } else {
+                        filteredSubjects.forEach((s, i) => {
+                            let alloc = 0; 
+                            this.data.topics.filter(t => t.subjectId === s.id).forEach(t => alloc += t.estJp);
+                            html += `
+                                <tr>
+                                    <td class="border border-black p-2 text-center">${i+1}</td>
+                                    <td class="border border-black p-2">${s.name}</td>
+                                    <td class="border border-black p-2 text-center">${s.class}</td>
+                                    <td class="border border-black p-2 text-center">${s.effWeeks}</td>
+                                    <td class="border border-black p-2 text-center font-semibold">${s.totalJp}</td>
+                                    <td class="border border-black p-2 text-center">${alloc}</td>
+                                    <td class="border border-black p-2 text-center font-medium ${s.totalJp - alloc < 0 ? 'text-red-600' : ''}">${s.totalJp - alloc}</td>
+                                </tr>`;
+                        });
+                    }
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>`;
+
+                    // 2. RINCIAN MATERI DETAIL UNTUK SETIAP MAPEL
+                    if (filteredSubjects.length > 0) {
+                        html += `<div class="print-page-break mt-10"></div>`;
+                        html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">II. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
+                        
+                        filteredSubjects.forEach((s, mapelIndex) => {
+                            const topics = this.data.topics.filter(t => t.subjectId === s.id);
+                            let totalAlloc = 0;
+                            
+                            html += `
+                                <div class="mb-8 ${mapelIndex > 0 ? 'print-page-break pt-6' : ''}">
+                                    <div class="bg-gray-50 p-2 border border-black mb-2 flex justify-between items-center">
+                                        <span class="font-bold text-sm text-navy-900">${mapelIndex+1}. ${s.name.toUpperCase()} (Kelas ${s.class})</span>
+                                        <span class="text-xs font-semibold">${s.jpPerWeek} JP/mgg &bull; ${s.effWeeks} mgg efektif &bull; Total ${s.totalJp} JP</span>
+                                    </div>
+                                    <table class="w-full border-collapse border border-black text-xs">
+                                        <thead>
+                                            <tr class="bg-gray-100">
+                                                <th class="border border-black p-2 w-10 text-center">No</th>
+                                                <th class="border border-black p-2 w-24 text-center">Kode / TP</th>
+                                                <th class="border border-black p-2 text-left">Nama Bab / Materi Pokok</th>
+                                                <th class="border border-black p-2 w-28 text-center">Estimasi Alokasi (JP)</th>
+                                                <th class="border border-black p-2 w-32 text-center">Realisasi Target (JP)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>`;
+                            
+                            if (topics.length === 0) {
+                                html += `<tr><td colspan="5" class="border border-black p-4 text-center text-gray-500">Belum ada rincian rute materi pelajaran.</td></tr>`;
+                            } else {
+                                topics.forEach((t, topicIndex) => {
+                                    totalAlloc += t.estJp;
+                                    html += `
+                                        <tr>
+                                            <td class="border border-black p-2 text-center">${topicIndex+1}</td>
+                                            <td class="border border-black p-2 text-center font-medium">${t.kd}</td>
+                                            <td class="border border-black p-2">${t.name}</td>
+                                            <td class="border border-black p-2 text-center font-semibold">${t.estJp}</td>
+                                            <td class="border border-black p-2 text-center">${t.realJp > 0 ? t.realJp + ' JP' : '-'}</td>
+                                        </tr>`;
+                                });
+                            }
+                            
+                            html += `
+                                        <tr class="font-bold bg-gray-50 text-sm">
+                                            <td colspan="3" class="border border-black p-2 text-right">TOTAL ALOKASI JP MATERI:</td>
+                                            <td class="border border-black p-2 text-center text-blue-800">${totalAlloc} JP</td>
+                                            <td class="border border-black p-2 text-center text-green-700">${s.totalJp - totalAlloc} JP (Sisa)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>`;
+                        });
+                    }
+
+                } else {
+                    // JIKA DIPILIH SATU MAPEL SAJA
+                    const subject = this.data.subjects.find(s => s.id == filter);
+                    if(subject) {
+                        document.getElementById('print-mapel-name').textContent = subject.name;
+                        document.getElementById('print-kelas').textContent = subject.class;
+                        const topics = this.data.topics.filter(t => t.subjectId == subject.id);
+                        
+                        html = `
+                            <div class="mb-4 text-sm font-semibold">
+                                <p>Perhitungan Jam Efektif: ${subject.jpPerWeek} JP/Minggu x ${subject.effWeeks} Minggu Efektif = ${subject.totalJp} JP Total Tersedia.</p>
+                            </div>
+                            <table class="w-full border-collapse border border-black text-sm">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="border border-black p-2 w-12 text-center">No</th>
+                                        <th class="border border-black p-2 w-32 text-center">Tujuan Pembelajaran</th>
+                                        <th class="border border-black p-2 text-left">Materi Pokok / Bahasan</th>
+                                        <th class="border border-black p-2 w-36 text-center">Alokasi Waktu (JP)</th>
+                                        <th class="border border-black p-2 w-32 text-center">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                        
+                        let totalAlloc = 0;
+                        if(topics.length===0) {
+                            html += `<tr><td colspan="5" class="border border-black p-4 text-center">Belum ada rincian materi.</td></tr>`;
+                        } else {
+                            topics.forEach((t, i) => {
+                                totalAlloc += t.estJp;
+                                html += `
+                                    <tr>
+                                        <td class="border border-black p-2 text-center">${i+1}</td>
+                                        <td class="border border-black p-2 text-center font-medium">${t.kd}</td>
+                                        <td class="border border-black p-2">${t.name}</td>
+                                        <td class="border border-black p-2 text-center font-semibold">${t.estJp}</td>
+                                        <td class="border border-black p-2 text-center">${t.realJp > 0 ? 'Realisasi: ' + t.realJp + ' JP' : 'Direncanakan'}</td>
+                                    </tr>`;
+                            });
+                        }
+                        html += `
+                                    <tr class="font-bold bg-gray-100">
+                                        <td colspan="3" class="border border-black p-2 text-right">JUMLAH ALOKASI JP TERPROGRAM:</td>
+                                        <td class="border border-black p-2 text-center">${totalAlloc} JP</td>
+                                        <td class="border border-black p-2 text-center">${subject.totalJp - totalAlloc} JP (Sisa)</td>
+                                    </tr>
+                                </tbody>
+                            </table>`;
+                    }
+                }
+                container.innerHTML = html;
+            },
+            printReport: function() { window.print(); this.showToast('Menyiapkan dokumen cetak...'); },
+            
+            // --- EXPORT TO EXCEL (SheetJS) ---
+            exportExcel: function() {
+                const sem = document.getElementById('filter-report-semester').value;
+                const filter = document.getElementById('select-report-subject').value;
+                const activeSemLabel = sem === '1' ? 'Ganjil' : 'Genap';
+                
+                const wb = XLSX.utils.book_new();
+                const ws_data = [];
+                
+                // Kop Laporan Formal
+                ws_data.push([this.data.settings.schoolName.toUpperCase()]);
+                ws_data.push(["ANALISIS ALOKASI WAKTU PEMBELAJARAN GURU"]);
+                ws_data.push([`Tahun Ajaran: ${this.data.settings.academicYear} | Semester: ${activeSemLabel}`]);
+                ws_data.push([]); // Baris kosong pembatas
+                
+                if (filter === 'all') {
+                    // Header Rekap
+                    ws_data.push(["No", "Mata Pelajaran", "Kelas", "Minggu Efektif", "Total JP Tersedia", "JP Terprogram", "Sisa JP"]);
+                    
+                    const listSubj = this.data.subjects.filter(s => s.semester === sem);
+                    if(listSubj.length === 0) {
+                        ws_data.push(["-", "Belum ada data mata pelajaran pada semester ini.", "", "", "", "", ""]);
+                    } else {
+                        listSubj.forEach((s, i) => {
+                            let alloc = 0; 
+                            this.data.topics.filter(t => t.subjectId === s.id).forEach(t => alloc += t.estJp);
+                            ws_data.push([i+1, s.name, s.class, s.effWeeks, s.totalJp, alloc, s.totalJp - alloc]);
+                        });
+                    }
+                } else {
+                    // Header Detail Mapel Tunggal
+                    const s = this.data.subjects.find(sub => sub.id == filter);
+                    ws_data.push(["Mata Pelajaran:", s.name, "", "Kelas:", s.class]);
+                    ws_data.push(["Beban Belajar:", `${s.jpPerWeek} JP / Minggu`, "", "Minggu Efektif:", `${s.effWeeks} Minggu`]);
+                    ws_data.push(["Total JP:", `${s.totalJp} JP`]);
+                    ws_data.push([]); // Baris kosong pembatas
+                    ws_data.push(["No", "Tujuan Pembelajaran", "Materi Pokok / Bab", "Alokasi Estimasi (JP)", "Keterangan"]);
+                    
+                    let totalAlloc = 0;
+                    const topics = this.data.topics.filter(t => t.subjectId == filter);
+                    if(topics.length === 0) {
+                        ws_data.push(["-", "Belum ada rincian tujuan pembelajaran.", "", "", ""]);
+                    } else {
+                        topics.forEach((t, i) => {
+                            totalAlloc += t.estJp;
+                            ws_data.push([i+1, t.kd, t.name, t.estJp, ""]);
+                        });
+                    }
+                    ws_data.push([]);
+                    ws_data.push(["", "TOTAL JP TERALOKASI", "", totalAlloc, ""]);
+                    ws_data.push(["", "SISA ALOKASI WAKTU", "", s.totalJp - totalAlloc, ""]);
+                }
+                
+                // Tanda Tangan Formal Guru & Kepala Sekolah
+                ws_data.push([]);
+                ws_data.push([]);
+                ws_data.push(["Mengetahui,", "", "", "Guru Mata Pelajaran,"]);
+                ws_data.push(["Kepala Sekolah"]);
+                ws_data.push([]);
+                ws_data.push([]);
+                ws_data.push([this.data.settings.principalName || "(...................................)", "", "", this.data.settings.teacherName || "(...................................)"]);
+                ws_data.push([`NIP. ${this.data.settings.principalNip || ""}`, "", "", `NIP. ${this.data.settings.teacherNip || ""}`]);
+                
+                // Konversi array 2D ke format worksheet
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                
+                // Sesuaikan lebar kolom agar rapih tanpa teks terpotong (Auto Width)
+                const wscols = [
+                    {wch: 8},   // No / Label
+                    {wch: 32},  // Mata Pelajaran / Tujuan Pembelajaran
+                    {wch: 38},  // Kelas / Materi Pokok
+                    {wch: 22},  // Minggu / Estimasi JP
+                    {wch: 22},  // Total JP / Keterangan
+                    {wch: 16},
+                    {wch: 16}
+                ];
+                ws['!cols'] = wscols;
+                
+                XLSX.utils.book_append_sheet(wb, ws, "Analisis Waktu");
+                
+                // Download file Excel
+                const fileName = `Laporan_Analisis_Waktu_${filter === 'all' ? 'Rekapitulasi' : 'Mapel'}_Smt_${sem}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                this.showToast('Laporan Excel formal berhasil diunduh!', 'success');
+            },
+
+            // --- SETTINGS ---
+            fillSettingsForm: function() {
+                const s = this.data.settings;
+                document.getElementById('set-school').value = s.schoolName || '';
+                document.getElementById('set-logo').value = s.logoUrl || '';
+                document.getElementById('set-principal').value = s.principalName || '';
+                document.getElementById('set-principal-nip').value = s.principalNip || '';
+                document.getElementById('set-teacher').value = s.teacherName || '';
+                document.getElementById('set-teacher-nip').value = s.teacherNip || '';
+                document.getElementById('set-year').value = s.academicYear || '';
+                document.getElementById('set-semester').value = s.semester || '1';
+            },
+            saveSettings: function() {
+                this.data.settings.schoolName = document.getElementById('set-school').value;
+                this.data.settings.logoUrl = document.getElementById('set-logo').value;
+                this.data.settings.principalName = document.getElementById('set-principal').value;
+                this.data.settings.principalNip = document.getElementById('set-principal-nip').value;
+                this.data.settings.teacherName = document.getElementById('set-teacher').value;
+                this.data.settings.teacherNip = document.getElementById('set-teacher-nip').value;
+                this.data.settings.academicYear = document.getElementById('set-year').value;
+                this.data.settings.semester = document.getElementById('set-semester').value;
+                
+                this.saveData(); 
+                this.updateUIProfile(); 
+                this.syncGlobalSemester();
+                
+                this.renderDashboard();
+                this.renderSubjectsTable();
+                this.renderCalendar();
+                this.renderAnalysisSelect();
+                this.renderReportSelect();
+                
+                this.showToast('Pengaturan berhasil disimpan');
+            },
+            backupData: function() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data));
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", dataStr);
+                dlAnchorElem.setAttribute("download", "waktuedu_backup_" + new Date().getTime() + ".json");
+                dlAnchorElem.click(); this.showToast('File backup berhasil diunduh');
+            },
+            restoreData: function(input) {
+                const file = input.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if(parsed.settings && parsed.subjects) {
+                                this.data = parsed; this.saveData(); this.showToast('Data berhasil direstore', 'success');
+                                setTimeout(() => window.location.reload(), 1000);
+                            } else this.showToast('Format file JSON tidak valid', 'error');
+                        } catch (err) { this.showToast('Gagal membaca file', 'error'); }
+                    };
+                    reader.readAsText(file);
+                }
+            },
+            resetData: function() {
+                if(confirm('PERINGATAN! Semua data (mata pelajaran, analisis, kalender) akan dihapus secara permanen. Anda yakin?')) {
+                    localStorage.removeItem('waktuedu_data'); this.showToast('Data berhasil direset. Memuat ulang...', 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { app.init(); });
+    </script>
+</body>
+</html>
