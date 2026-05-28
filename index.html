@@ -67,10 +67,38 @@
         .dark .nav-item.active { border-left-color: #eab308; }
 
         @media print {
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-            .no-print { display: none !important; }
+            @page { size: A4 portrait; margin: 1.5cm 1.5cm; }
+            body { background-color: white !important; color: black !important; overflow: auto !important; height: auto !important; }
+            
+            /* Sembunyikan elemen UI */
+            #sidebar, header, .no-print, #loading, #toast-container { display: none !important; }
+            
+            /* Reset struktur flex/grid layar utama agar mengalir ke bawah (flow normal) */
+            .flex.h-screen { height: auto !important; display: block !important; }
+            main { display: block !important; height: auto !important; overflow: visible !important; background: white !important; }
+            #pages-container { display: block !important; height: auto !important; overflow: visible !important; padding: 0 !important; }
+            
+            /* Tampilkan HANYA halaman laporan */
+            .page-section { display: none !important; }
+            #page-report { display: block !important; }
+            
+            /* Format area cetak (Hilangkan padding bayangan, biarkan 100% lebar kertas) */
+            #print-area { 
+                position: relative !important;
+                visibility: visible;
+                box-shadow: none !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            /* Perilaku cerdas tabel di multi-halaman */
+            table { page-break-inside: auto; width: 100%; border-collapse: collapse; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            
             .print-page-break { page-break-before: always; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
