@@ -663,13 +663,13 @@
         const app = {
             data: {
                 settings: {
-                    schoolName: "SMP Negeri 1 Contoh",
+                    schoolName: "",
                     logoUrl: "",
-                    principalName: "H. Ahmad, M.Pd",
-                    principalNip: "19700101 199512 1 001",
-                    teacherName: "Budi Santoso, S.Pd",
-                    teacherNip: "19800101 200501 1 002",
-                    academicYear: "2023/2024",
+                    principalName: "",
+                    principalNip: "",
+                    teacherName: "",
+                    teacherNip: "",
+                    academicYear: "",
                     semester: "1",
                     theme: "light"
                 },
@@ -686,7 +686,6 @@
             init: function() {
                 this.loadData();
                 this.initCalendarData();
-                if(this.data.subjects.length === 0) this.generateDummyData();
                 
                 this.applyTheme();
                 this.updateUIProfile();
@@ -763,22 +762,6 @@
                 }
             },
             saveData: function() { localStorage.setItem('waktuedu_data', JSON.stringify(this.data)); },
-            
-            generateDummyData: function() {
-                this.data.subjects = [
-                    { id: Date.now()+1, name: "Matematika", class: "VII A", semester: '1', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
-                    { id: Date.now()+2, name: "Matematika", class: "VII A", semester: '2', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
-                    { id: Date.now()+3, name: "IPA", class: "VII A", semester: '1', teacher: "", jpPerWeek: 5, effWeeks: 18, totalJp: 90 }
-                ];
-                let sId = this.data.subjects[0].id;
-                this.data.topics = [
-                    { id: Date.now()+4, subjectId: sId, kd: "TP 1", name: "Bilangan Bulat dan Pecahan", estJp: 16, realJp: 16 },
-                    { id: Date.now()+5, subjectId: sId, kd: "TP 2", name: "Himpunan", estJp: 12, realJp: 10 }
-                ];
-                this.calculateEffectiveWeeks('1');
-                this.calculateEffectiveWeeks('2');
-                this.saveData();
-            },
 
             showToast: function(msg, type='success') {
                 const container = document.getElementById('toast-container');
@@ -827,8 +810,8 @@
             },
             updateUIProfile: function() {
                 const s = this.data.settings;
-                document.getElementById('sb-teacher-name').textContent = s.teacherName;
-                document.getElementById('sb-school-name').textContent = s.schoolName;
+                document.getElementById('sb-teacher-name').textContent = s.teacherName || 'Guru';
+                document.getElementById('sb-school-name').textContent = s.schoolName || 'Sekolah';
             },
 
             syncGlobalSemester: function() {
