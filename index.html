@@ -635,11 +635,11 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-1 dark:text-gray-300">Tujuan Pembelajaran / Kode</label>
-                        <input type="text" id="topic-kd" placeholder="Contoh: TP 1 / 3.1" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                        <textarea id="topic-kd" rows="3" placeholder="Contoh: Mengidentifikasi peristiwa..." required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none"></textarea>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1 dark:text-gray-300">Nama Bab / Materi Pokok</label>
-                        <input type="text" id="topic-name" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none">
+                        <textarea id="topic-name" rows="2" placeholder="Contoh: Bab 1 Pancasila..." required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 outline-none"></textarea>
                     </div>
                     <div class="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-100 dark:border-blue-800">
                         <div>
@@ -956,16 +956,20 @@
                 this.renderSubjectsTable();
             },
             editSubject: function(id) {
-                const s = this.data.subjects.find(s => s.id == id);
+                const s = this.data.subjects.find(s => String(s.id) === String(id));
                 if(s) {
                     document.getElementById('modal-subject-title').textContent = 'Edit Mata Pelajaran';
-                    document.getElementById('subj-id').value = s.id;
-                    document.getElementById('subj-name').value = s.name;
-                    document.getElementById('subj-class').value = s.class;
-                    document.getElementById('subj-semester').value = s.semester || '1';
-                    document.getElementById('subj-jp').value = s.jpPerWeek;
-                    document.getElementById('subj-teacher').value = s.teacher;
                     this.openModal('modal-subject', true);
+                    
+                    // Jeda sedikit untuk memastikan modal sudah dirender sebelum set value
+                    setTimeout(() => {
+                        document.getElementById('subj-id').value = s.id;
+                        document.getElementById('subj-name').value = s.name;
+                        document.getElementById('subj-class').value = s.class;
+                        document.getElementById('subj-semester').value = s.semester || '1';
+                        document.getElementById('subj-jp').value = s.jpPerWeek;
+                        document.getElementById('subj-teacher').value = s.teacher || '';
+                    }, 50);
                 }
             },
             deleteSubject: function(id) {
@@ -1073,15 +1077,19 @@
                 this.saveData(); this.closeModal('modal-topic'); this.renderTopics();
             },
             editTopic: function(id) {
-                const t = this.data.topics.find(t => t.id == id);
+                const t = this.data.topics.find(t => String(t.id) === String(id));
                 if(t) {
                     document.getElementById('modal-topic-title').textContent = 'Edit Materi';
-                    document.getElementById('topic-id').value = t.id;
-                    document.getElementById('topic-kd').value = t.kd;
-                    document.getElementById('topic-name').value = t.name;
-                    document.getElementById('topic-est').value = t.estJp;
-                    document.getElementById('topic-real').value = t.realJp;
                     this.openModal('modal-topic', true);
+                    
+                    // Jeda sedikit untuk memastikan elemen textarea siap menerima value panjang
+                    setTimeout(() => {
+                        document.getElementById('topic-id').value = t.id;
+                        document.getElementById('topic-kd').value = t.kd;
+                        document.getElementById('topic-name').value = t.name;
+                        document.getElementById('topic-est').value = t.estJp;
+                        document.getElementById('topic-real').value = t.realJp;
+                    }, 50);
                 }
             },
             deleteTopic: function(id) {
