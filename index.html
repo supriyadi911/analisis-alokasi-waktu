@@ -148,7 +148,7 @@
                     <i class="fas fa-book w-6 text-center mr-2"></i> Mata Pelajaran
                 </a>
                 <a href="#" onclick="app.navigate('analysis')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="analysis">
-                    <i class="fas fa-chart-pie w-6 text-center mr-2"></i> Analisis Waktu
+                    <i class="fas fa-chart-pie w-6 text-center mr-2"></i> Distribusi JP per Mapel
                 </a>
                 <a href="#" onclick="app.navigate('statistics')" class="nav-item flex items-center px-6 py-3 text-sm font-medium hover:bg-white/5 hover:text-white transition-colors" data-target="statistics">
                     <i class="fas fa-chart-line w-6 text-center mr-2"></i> Statistik
@@ -731,7 +731,7 @@
 
                 if(window.innerWidth < 768) document.getElementById('sidebar').classList.add('-translate-x-full');
 
-                const titles = { 'dashboard': 'Dashboard', 'subjects': 'Data Mata Pelajaran', 'analysis': 'Analisis Alokasi Waktu', 'calendar': 'Kalender Minggu Efektif', 'statistics': 'Statistik & Visualisasi', 'report': 'Cetak Laporan', 'settings': 'Pengaturan Aplikasi' };
+                const titles = { 'dashboard': 'Dashboard', 'subjects': 'Data Mata Pelajaran', 'analysis': 'Distribusi JP per Mapel', 'calendar': 'Kalender Minggu Efektif', 'statistics': 'Statistik & Visualisasi', 'report': 'Cetak Laporan', 'settings': 'Pengaturan Aplikasi' };
                 document.getElementById('page-title').textContent = titles[pageId];
 
                 if(pageId === 'dashboard') this.renderDashboard();
@@ -1092,13 +1092,13 @@
 
                         tbody.innerHTML += `
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td class="p-3 text-center">${i+1}</td>
-                                <td class="p-3 font-medium">${t.name}</td>
-                                <td class="p-3">${t.kd}</td>
-                                <td class="p-3 text-center font-semibold text-blue-600 dark:text-blue-400">${t.estJp}</td>
-                                <td class="p-3 text-center font-semibold">${t.realJp}</td>
-                                <td class="p-3 text-center">${statusHtml}</td>
-                                <td class="p-3 text-center">
+                                <td class="p-3 text-center align-top">${i+1}</td>
+                                <td class="p-3 font-medium align-top">${t.name}</td>
+                                <td class="p-3 align-top">${t.kd}</td>
+                                <td class="p-3 text-center align-top font-semibold text-blue-600 dark:text-blue-400">${t.estJp}</td>
+                                <td class="p-3 text-center align-top font-semibold">${t.realJp}</td>
+                                <td class="p-3 text-center align-top">${statusHtml}</td>
+                                <td class="p-3 text-center align-top">
                                     <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 mx-1 p-1"><i class="fas fa-edit"></i></button>
                                     <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 mx-1 p-1"><i class="fas fa-trash"></i></button>
                                 </td>
@@ -1151,7 +1151,7 @@
             // --- CALENDAR ---
             initCalendarData: function() {
                 const genMonths = (names) => names.map(m => {
-                    let w = []; for(let i=1; i<=4; i++) w.push({ id: `${m}-w${i}`, label: `Mg ${i}`, status: 'efektif' });
+                    let w = []; for(let i=1; i<=4; i++) w.push({ id: `${m}-w${i}`, label: `Mg ${i}`, status: 'efektif', note: '' });
                     return { name: m, weeks: w };
                 });
 
@@ -1196,13 +1196,35 @@
                                         <div>
                                             <h4 class="font-semibold text-center mb-3 text-navy-800 dark:text-gold-500 border-b border-gray-200 dark:border-gray-600 pb-1">${month.name} <span class="text-xs font-normal text-gray-500 dark:text-gray-400">(Smt ${sem})</span></h4>
                                             <div class="grid grid-cols-4 gap-2 mb-3">`;
+                        
                         month.weeks.forEach((week, wIdx) => {
                             const colorClass = statusColors[week.status];
                             html += `<div onclick="app.toggleWeekStatus('${sem}', ${mIdx}, ${wIdx})" class="cursor-pointer border rounded py-2 text-center text-xs font-medium transition-colors select-none ${colorClass}" title="Klik untuk ubah status">${week.label}</div>`;
                         });
-                        html += `           </div>
-                                        </div>
-                                        <div class="text-center mt-2 border-t border-gray-200 dark:border-gray-600 pt-3 flex justify-center gap-4">
+                        
+                        html += `           </div>`;
+                        
+                        // Cek apakah ada minggu ujian/kegiatan di bulan ini untuk dirender form isiannya
+                        let notesHtml = '';
+                        month.weeks.forEach((week, wIdx) => {
+                            if (week.status === 'ujian') {
+                                notesHtml += `
+                                    <div class="mt-2 text-xs">
+                                        <label class="block text-yellow-800 dark:text-yellow-400 mb-0.5 font-semibold text-[10px]">${week.label} (${month.name}):</label>
+                                        <input type="text" value="${week.note || ''}" 
+                                               oninput="app.updateWeekNote('${sem}', ${mIdx}, ${wIdx}, this.value)" 
+                                               placeholder="Keterangan ujian / kegiatan..." 
+                                               class="w-full px-2 py-1 border border-yellow-300 rounded text-xs bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-700 dark:text-yellow-200 focus:outline-none focus:ring-1 focus:ring-yellow-500">
+                                    </div>`;
+                            }
+                        });
+
+                        if (notesHtml) {
+                            html += `       <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">${notesHtml}</div>`;
+                        }
+
+                        html += `       </div>
+                                        <div class="text-center mt-3 border-t border-gray-200 dark:border-gray-600 pt-3 flex justify-center gap-4">
                                             <button onclick="app.addWeek('${sem}', ${mIdx})" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-semibold flex items-center"><i class="fas fa-plus mr-1"></i> Tambah</button>
                                             <button onclick="app.removeWeek('${sem}', ${mIdx})" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400 font-semibold flex items-center"><i class="fas fa-minus mr-1"></i> Kurangi</button>
                                         </div>
@@ -1219,12 +1241,18 @@
                 let current = this.data.calendar[sem].months[mIdx].weeks[wIdx].status;
                 let nextIdx = (statuses.indexOf(current) + 1) % statuses.length;
                 this.data.calendar[sem].months[mIdx].weeks[wIdx].status = statuses[nextIdx];
+                
+                // Reset note jika status berganti dari ujian
+                if (statuses[nextIdx] !== 'ujian') {
+                    this.data.calendar[sem].months[mIdx].weeks[wIdx].note = '';
+                }
+                
                 this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Status minggu diperbarui');
             },
             addWeek: function(sem, mIdx) {
                 const month = this.data.calendar[sem].months[mIdx];
                 const newNum = month.weeks.length + 1;
-                month.weeks.push({ id: `${month.name}-w${newNum}`, label: `Mg ${newNum}`, status: 'efektif' });
+                month.weeks.push({ id: `${month.name}-w${newNum}`, label: `Mg ${newNum}`, status: 'efektif', note: '' });
                 this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Minggu berhasil ditambahkan');
             },
             removeWeek: function(sem, mIdx) {
@@ -1235,6 +1263,10 @@
                 } else {
                     this.showToast('Tidak ada minggu untuk dikurangi', 'error');
                 }
+            },
+            updateWeekNote: function(sem, mIdx, wIdx, value) {
+                this.data.calendar[sem].months[mIdx].weeks[wIdx].note = value;
+                this.saveData(); // Auto-save ke localstorage secara real-time
             },
             calculateEffectiveWeeks: function(semester) {
                 if(!semester) { this.calculateEffectiveWeeks('1'); this.calculateEffectiveWeeks('2'); return; }
@@ -1458,7 +1490,7 @@
                         }
                         html += `
                                     <tr class="font-bold bg-gray-100">
-                                        <td colspan="3" class="border border-black p-2 text-right">JUMLAH ALOKASI JP TERPROGRAM:</td>
+                                        <td colspan="3" class="border border-black p-2 text-right">JUMLAH ALOKASI</td>
                                         <td class="border border-black p-2 text-center">${totalAlloc} JP</td>
                                         <td class="border border-black p-2 text-center">${subject.totalJp - totalAlloc} JP (Sisa)</td>
                                     </tr>
@@ -1466,6 +1498,54 @@
                             </table>`;
                     }
                 }
+
+                // Tambahkan Ringkasan Kegiatan / Ujian Non-Efektif untuk Laporan Cetak Resmi
+                const semsToSearch = sem === 'all' ? ['1', '2'] : [sem];
+                let activities = [];
+                semsToSearch.forEach(sVal => {
+                    if (this.data.calendar[sVal]) {
+                        this.data.calendar[sVal].months.forEach(m => {
+                            m.weeks.forEach(w => {
+                                if (w.status === 'ujian' && w.note && w.note.trim() !== '') {
+                                    activities.push({
+                                        semester: sVal === '1' ? 'Smt 1' : 'Smt 2',
+                                        month: m.name,
+                                        week: w.label,
+                                        note: w.note
+                                    });
+                                }
+                            });
+                        });
+                    }
+                });
+
+                if (activities.length > 0) {
+                    html += `
+                        <div class="mt-8">
+                            <h4 class="text-sm font-bold border-b border-black pb-1 mb-3 uppercase">Jadwal Kegiatan & Ujian Akademik (Minggu Non-Efektif)</h4>
+                            <table class="w-full border-collapse border border-black text-xs">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="border border-black p-1.5 w-16 text-center">Semester</th>
+                                        <th class="border border-black p-1.5 w-24 text-center">Bulan</th>
+                                        <th class="border border-black p-1.5 w-20 text-center">Minggu</th>
+                                        <th class="border border-black p-1.5 text-left">Nama Kegiatan / Ujian</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${activities.map(act => `
+                                        <tr>
+                                            <td class="border border-black p-1.5 text-center">${act.semester}</td>
+                                            <td class="border border-black p-1.5 text-center">${act.month}</td>
+                                            <td class="border border-black p-1.5 text-center">${act.week}</td>
+                                            <td class="border border-black p-1.5">${act.note}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                }
+
                 container.innerHTML = html;
             },
             printReport: function() { window.print(); this.showToast('Menyiapkan dokumen cetak...'); },
@@ -1474,19 +1554,14 @@
             exportExcel: function() {
                 const sem = document.getElementById('filter-report-semester').value;
                 const filter = document.getElementById('select-report-subject').value;
-                let activeSemLabel = sem === 'all' ? '1 Tahun (Ganjil & Genap)' : (sem === '1' ? 'Ganjil' : 'Genap');
+                const activeSemLabel = sem === 'all' ? '1 Tahun Ajaran' : (sem === '1' ? 'Ganjil' : 'Genap');
                 
                 const wb = XLSX.utils.book_new();
                 const ws_data = [];
                 
-                if (filter !== 'all') {
-                    const subject = this.data.subjects.find(s => s.id == filter);
-                    if (subject) activeSemLabel = subject.semester === '1' ? 'Ganjil' : 'Genap';
-                }
-
                 // Kop Laporan Formal
                 ws_data.push([this.data.settings.schoolName.toUpperCase()]);
-                ws_data.push(["ANALISIS ALOKASI WAKTU PEMBELAJARAN GURU"]);
+                ws_data.push(["DISTRIBUSI JP PER MAPEL & ANALISIS WAKTU"]);
                 ws_data.push([`Tahun Ajaran: ${this.data.settings.academicYear} | Semester: ${activeSemLabel}`]);
                 ws_data.push([]); // Baris kosong pembatas
                 
@@ -1527,6 +1602,34 @@
                     ws_data.push(["", "TOTAL JP TERALOKASI", "", totalAlloc, ""]);
                     ws_data.push(["", "SISA ALOKASI WAKTU", "", s.totalJp - totalAlloc, ""]);
                 }
+
+                // Append Kegiatan/Ujian Akademik jika ada
+                const semsToSearch = sem === 'all' ? ['1', '2'] : [sem];
+                let fileActivities = [];
+                semsToSearch.forEach(sVal => {
+                    if (this.data.calendar[sVal]) {
+                        this.data.calendar[sVal].months.forEach(m => {
+                            m.weeks.forEach(w => {
+                                if (w.status === 'ujian' && w.note && w.note.trim() !== '') {
+                                    fileActivities.push([
+                                        sVal === '1' ? 'Smt 1' : 'Smt 2',
+                                        m.name,
+                                        w.label,
+                                        w.note
+                                    ]);
+                                }
+                            });
+                        });
+                    }
+                });
+
+                if (fileActivities.length > 0) {
+                    ws_data.push([]);
+                    ws_data.push([]);
+                    ws_data.push(["JADWAL KEGIATAN & UJIAN AKADEMIK (MINGGU NON-EFEKTIF)"]);
+                    ws_data.push(["Semester", "Bulan", "Minggu", "Nama Kegiatan / Ujian"]);
+                    fileActivities.forEach(row => ws_data.push(row));
+                }
                 
                 // Tanda Tangan Formal Guru & Kepala Sekolah
                 ws_data.push([]);
@@ -1562,10 +1665,10 @@
                 ];
                 ws['!cols'] = wscols;
                 
-                XLSX.utils.book_append_sheet(wb, ws, "Analisis Waktu");
+                XLSX.utils.book_append_sheet(wb, ws, "Distribusi JP per Mapel");
                 
                 // Download file Excel
-                const fileName = `Laporan_Analisis_Waktu_${filter === 'all' ? 'Rekapitulasi' : 'Mapel'}_Smt_${sem === 'all' ? '1_Tahun' : sem}.xlsx`;
+                const fileName = `Laporan_Distribusi_JP_${filter === 'all' ? 'Rekapitulasi' : 'Mapel'}_Smt_${sem === 'all' ? '1_Tahun' : sem}.xlsx`;
                 XLSX.writeFile(wb, fileName);
                 this.showToast('Laporan Excel formal berhasil diunduh!', 'success');
             },
