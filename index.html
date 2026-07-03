@@ -783,8 +783,16 @@
                 const modal = document.getElementById(id);
                 modal.classList.remove('hidden'); void modal.offsetWidth;
                 modal.classList.remove('opacity-0'); modal.firstElementChild.classList.remove('scale-95');
-                if(id === 'modal-subject') document.getElementById('form-subject').reset();
-                if(id === 'modal-topic') document.getElementById('form-topic').reset();
+                
+                // Pastikan input form (termasuk hidden ID) benar-benar dikosongkan saat menambah baru
+                if(id === 'modal-subject') {
+                    document.getElementById('form-subject').reset();
+                    document.getElementById('subj-id').value = ''; 
+                }
+                if(id === 'modal-topic') {
+                    document.getElementById('form-topic').reset();
+                    document.getElementById('topic-id').value = ''; 
+                }
             },
             closeModal: function(id) {
                 const modal = document.getElementById(id);
