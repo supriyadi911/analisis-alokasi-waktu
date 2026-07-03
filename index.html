@@ -334,6 +334,7 @@
                             </div>
                             <div class="flex flex-col md:items-end gap-2">
                                 <select id="filter-calendar-semester" onchange="app.renderCalendar()" class="p-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                    <option value="all">Semua Semester (1 Tahun)</option>
                                     <option value="1">Semester 1 (Juli - Desember)</option>
                                     <option value="2">Semester 2 (Januari - Juni)</option>
                                 </select>
@@ -350,7 +351,7 @@
                         </div>
                         
                         <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex justify-between items-center border border-blue-100 dark:border-blue-800">
-                            <span class="text-blue-800 dark:text-blue-300 font-semibold">Total Minggu Efektif Semester Ini:</span>
+                            <span class="text-blue-800 dark:text-blue-300 font-semibold">Total Minggu Efektif Ditampilkan:</span>
                             <span id="calc-total-weeks" class="text-2xl font-bold text-navy-800 dark:text-gold-500">0</span>
                         </div>
                     </div>
@@ -1106,7 +1107,7 @@
                 this.calculateEffectiveWeeks('2');
             },
             renderCalendar: function() {
-                const sem = document.getElementById('filter-calendar-semester').value;
+                const semFilter = document.getElementById('filter-calendar-semester').value;
                 const grid = document.getElementById('calendar-grid');
                 grid.innerHTML = '';
                 
@@ -1116,25 +1117,32 @@
                     'ujian': 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-400 dark:border-yellow-800'
                 };
 
-                this.data.calendar[sem].months.forEach((month, mIdx) => {
-                    let html = `<div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex flex-col justify-between">
-                                    <div>
-                                        <h4 class="font-semibold text-center mb-3 text-navy-800 dark:text-gold-500 border-b border-gray-200 dark:border-gray-600 pb-1">${month.name}</h4>
-                                        <div class="grid grid-cols-4 gap-2 mb-3">`;
-                    month.weeks.forEach((week, wIdx) => {
-                        const colorClass = statusColors[week.status];
-                        html += `<div onclick="app.toggleWeekStatus('${sem}', ${mIdx}, ${wIdx})" class="cursor-pointer border rounded py-2 text-center text-xs font-medium transition-colors select-none ${colorClass}" title="Klik untuk ubah status">${week.label}</div>`;
+                let totalWeeksDisplay = 0;
+                const semestersToRender = semFilter === 'all' ? ['1', '2'] : [semFilter];
+
+                semestersToRender.forEach(sem => {
+                    this.data.calendar[sem].months.forEach((month, mIdx) => {
+                        let html = `<div class="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-600 flex flex-col justify-between">
+                                        <div>
+                                            <h4 class="font-semibold text-center mb-3 text-navy-800 dark:text-gold-500 border-b border-gray-200 dark:border-gray-600 pb-1">${month.name} <span class="text-xs font-normal text-gray-500 dark:text-gray-400">(Smt ${sem})</span></h4>
+                                            <div class="grid grid-cols-4 gap-2 mb-3">`;
+                        month.weeks.forEach((week, wIdx) => {
+                            const colorClass = statusColors[week.status];
+                            html += `<div onclick="app.toggleWeekStatus('${sem}', ${mIdx}, ${wIdx})" class="cursor-pointer border rounded py-2 text-center text-xs font-medium transition-colors select-none ${colorClass}" title="Klik untuk ubah status">${week.label}</div>`;
+                        });
+                        html += `           </div>
+                                        </div>
+                                        <div class="text-center mt-2 border-t border-gray-200 dark:border-gray-600 pt-3 flex justify-center gap-4">
+                                            <button onclick="app.addWeek('${sem}', ${mIdx})" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-semibold flex items-center"><i class="fas fa-plus mr-1"></i> Tambah</button>
+                                            <button onclick="app.removeWeek('${sem}', ${mIdx})" class="text-xs text-red-600 hover:text-red-800 dark:text-red-400 font-semibold flex items-center"><i class="fas fa-minus mr-1"></i> Kurangi</button>
+                                        </div>
+                                    </div>`;
+                        grid.innerHTML += html;
                     });
-                    html += `           </div>
-                                    </div>
-                                    <div class="text-center mt-2 border-t border-gray-200 dark:border-gray-600 pt-2">
-                                        <button onclick="app.addWeek('${sem}', ${mIdx})" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-semibold"><i class="fas fa-plus"></i> Tambah Minggu</button>
-                                    </div>
-                                </div>`;
-                    grid.innerHTML += html;
+                    totalWeeksDisplay += this.data.calendar[sem].totalEffectiveWeeks;
                 });
                 
-                document.getElementById('calc-total-weeks').textContent = this.data.calendar[sem].totalEffectiveWeeks;
+                document.getElementById('calc-total-weeks').textContent = totalWeeksDisplay;
             },
             toggleWeekStatus: function(sem, mIdx, wIdx) {
                 const statuses = ['efektif', 'libur', 'ujian'];
@@ -1148,6 +1156,15 @@
                 const newNum = month.weeks.length + 1;
                 month.weeks.push({ id: `${month.name}-w${newNum}`, label: `Mg ${newNum}`, status: 'efektif' });
                 this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Minggu berhasil ditambahkan');
+            },
+            removeWeek: function(sem, mIdx) {
+                const month = this.data.calendar[sem].months[mIdx];
+                if (month.weeks.length > 0) {
+                    month.weeks.pop();
+                    this.calculateEffectiveWeeks(sem); this.renderCalendar(); this.showToast('Minggu berhasil dikurangi');
+                } else {
+                    this.showToast('Tidak ada minggu untuk dikurangi', 'error');
+                }
             },
             calculateEffectiveWeeks: function(semester) {
                 if(!semester) { this.calculateEffectiveWeeks('1'); this.calculateEffectiveWeeks('2'); return; }
