@@ -454,7 +454,7 @@
                                         <tr class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wider">
                                             <th class="p-3 font-semibold w-12 text-center">No</th>
                                             <th class="p-3 font-semibold">Bab / Materi</th>
-                                            <th class="p-3 font-semibold">Tujuan Pembelajaran</th>
+                                            <th class="p-3 font-semibold w-[35%]">Tujuan Pembelajaran</th>
                                             <th class="p-3 font-semibold text-center w-24">Estimasi JP</th>
                                             <th class="p-3 font-semibold text-center w-24">Realisasi JP</th>
                                             <th class="p-3 font-semibold text-center w-32">Status</th>
@@ -1316,10 +1316,10 @@
                                         <thead>
                                             <tr class="bg-gray-100">
                                                 <th class="border border-black p-2 w-10 text-center">No</th>
-                                                <th class="border border-black p-2 w-24 text-center">Kode / TP</th>
-                                                <th class="border border-black p-2 text-left">Nama Bab / Materi Pokok</th>
-                                                <th class="border border-black p-2 w-28 text-center">Estimasi Alokasi (JP)</th>
-                                                <th class="border border-black p-2 w-32 text-center">Realisasi Target (JP)</th>
+                                                <th class="border border-black p-2 w-[35%] text-center">Kode / TP</th>
+                                                <th class="border border-black p-2 w-auto text-left">Nama Bab / Materi Pokok</th>
+                                                <th class="border border-black p-2 w-24 text-center">Estimasi Alokasi (JP)</th>
+                                                <th class="border border-black p-2 w-28 text-center">Realisasi Target (JP)</th>
                                             </tr>
                                         </thead>
                                         <tbody>`;
@@ -1331,11 +1331,11 @@
                                     totalAlloc += t.estJp;
                                     html += `
                                         <tr>
-                                            <td class="border border-black p-2 text-center">${topicIndex+1}</td>
-                                            <td class="border border-black p-2 text-center font-medium">${t.kd}</td>
-                                            <td class="border border-black p-2">${t.name}</td>
-                                            <td class="border border-black p-2 text-center font-semibold">${t.estJp}</td>
-                                            <td class="border border-black p-2 text-center">${t.realJp > 0 ? t.realJp + ' JP' : '-'}</td>
+                                            <td class="border border-black p-2 text-center align-top">${topicIndex+1}</td>
+                                            <td class="border border-black p-2 text-left align-top font-medium">${t.kd}</td>
+                                            <td class="border border-black p-2 align-top text-left">${t.name}</td>
+                                            <td class="border border-black p-2 text-center align-top font-semibold">${t.estJp}</td>
+                                            <td class="border border-black p-2 text-center align-top">${t.realJp > 0 ? t.realJp + ' JP' : '-'}</td>
                                         </tr>`;
                                 });
                             }
@@ -1369,10 +1369,10 @@
                                 <thead>
                                     <tr class="bg-gray-200">
                                         <th class="border border-black p-2 w-12 text-center">No</th>
-                                        <th class="border border-black p-2 w-32 text-center">Tujuan Pembelajaran</th>
-                                        <th class="border border-black p-2 text-left">Materi Pokok / Bahasan</th>
-                                        <th class="border border-black p-2 w-36 text-center">Alokasi Waktu (JP)</th>
-                                        <th class="border border-black p-2 w-32 text-center">Keterangan</th>
+                                        <th class="border border-black p-2 w-[35%] text-center">Tujuan Pembelajaran</th>
+                                        <th class="border border-black p-2 w-auto text-left">Materi Pokok / Bahasan</th>
+                                        <th class="border border-black p-2 w-24 text-center">Alokasi Waktu (JP)</th>
+                                        <th class="border border-black p-2 w-28 text-center">Keterangan</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -1385,11 +1385,11 @@
                                 totalAlloc += t.estJp;
                                 html += `
                                     <tr>
-                                        <td class="border border-black p-2 text-center">${i+1}</td>
-                                        <td class="border border-black p-2 text-center font-medium">${t.kd}</td>
-                                        <td class="border border-black p-2">${t.name}</td>
-                                        <td class="border border-black p-2 text-center font-semibold">${t.estJp}</td>
-                                        <td class="border border-black p-2 text-center">${t.realJp > 0 ? 'Realisasi: ' + t.realJp + ' JP' : 'Direncanakan'}</td>
+                                        <td class="border border-black p-2 text-center align-top">${i+1}</td>
+                                        <td class="border border-black p-2 text-left align-top font-medium">${t.kd}</td>
+                                        <td class="border border-black p-2 align-top text-left">${t.name}</td>
+                                        <td class="border border-black p-2 text-center align-top font-semibold">${t.estJp}</td>
+                                        <td class="border border-black p-2 text-center align-top">${t.realJp > 0 ? 'Realisasi: ' + t.realJp + ' JP' : 'Direncanakan'}</td>
                                     </tr>`;
                             });
                         }
