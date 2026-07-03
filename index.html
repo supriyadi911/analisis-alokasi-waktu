@@ -260,6 +260,10 @@
                                         <input type="text" id="set-school" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
                                     </div>
                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alamat Sekolah</label>
+                                        <textarea id="set-address" rows="2" placeholder="Contoh: Jl. Merdeka No. 1, Jakarta" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors"></textarea>
+                                    </div>
+                                    <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Logo Sekolah</label>
                                         <input type="url" id="set-logo" placeholder="https://contoh.com/logo.png" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
                                         <p class="text-xs text-gray-500 mt-1">Kosongkan jika tidak ada logo</p>
@@ -290,7 +294,7 @@
                                             <input type="text" id="set-year" placeholder="Contoh: 2023/2024" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester Hack</label>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester Aktif</label>
                                             <select id="set-semester" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:border-navy-500 transition-colors">
                                                 <option value="1">1 (Ganjil)</option>
                                                 <option value="2">2 (Genap)</option>
@@ -529,14 +533,14 @@
                     <!-- Print Container -->
                     <div id="print-area" class="mt-6 bg-white text-black p-8 shadow-lg max-w-4xl mx-auto rounded overflow-hidden">
                         <div class="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
-                            <div class="w-24 h-24 flex items-center justify-center shrink-0">
-                                <img id="print-logo" src="" alt="Logo" class="max-h-full max-w-full hidden">
+                            <div class="w-24 h-28 flex items-center justify-center shrink-0">
+                                <img id="print-logo" src="" alt="Logo Sekolah" class="max-h-full max-w-full object-contain hidden">
                             </div>
                             <div class="flex-1 text-center px-4">
-                                <h2 class="text-2xl font-bold uppercase" id="print-school-name">NAMA SEKOLAH</h2>
-                                <p class="text-sm">ALAMAT SEKOLAH CONTOH, TELP: 123456</p>
+                                <h2 class="text-2xl font-bold uppercase tracking-wider" id="print-school-name">NAMA SEKOLAH</h2>
+                                <p class="text-sm mt-1" id="print-school-address">ALAMAT SEKOLAH</p>
                             </div>
-                            <div class="w-24 h-24 shrink-0"></div> <!-- Spacer -->
+                            <div class="w-24 h-28 shrink-0"></div> <!-- Spacer untuk menyeimbangkan alignment -->
                         </div>
                         
                         <h3 class="text-xl font-bold text-center mb-6 underline">ANALISIS ALOKASI WAKTU PEMBELAJARAN</h3>
@@ -666,6 +670,7 @@
             data: {
                 settings: {
                     schoolName: "",
+                    schoolAddress: "",
                     logoUrl: "",
                     principalName: "",
                     principalNip: "",
@@ -1284,10 +1289,12 @@
                     sel.innerHTML += `<option value="${s.id}">${s.name} - ${s.class} (Smt ${s.semester})</option>`;
                 });
                 
-                document.getElementById('print-school-name').textContent = this.data.settings.schoolName;
-                document.getElementById('print-teacher-name').textContent = this.data.settings.teacherName;
+                document.getElementById('print-school-name').textContent = this.data.settings.schoolName || 'NAMA SEKOLAH';
+                document.getElementById('print-school-address').textContent = this.data.settings.schoolAddress || 'Alamat Sekolah';
+                
+                document.getElementById('print-teacher-name').textContent = this.data.settings.teacherName || 'Nama Guru';
                 document.getElementById('print-teacher-nip').textContent = this.data.settings.teacherNip || '_________________';
-                document.getElementById('print-year').textContent = this.data.settings.academicYear;
+                document.getElementById('print-year').textContent = this.data.settings.academicYear || '-';
                 
                 document.getElementById('print-principal-name').textContent = this.data.settings.principalName || '(...................................)';
                 document.getElementById('print-principal-nip').textContent = this.data.settings.principalNip || '_________________';
@@ -1567,6 +1574,7 @@
             fillSettingsForm: function() {
                 const s = this.data.settings;
                 document.getElementById('set-school').value = s.schoolName || '';
+                document.getElementById('set-address').value = s.schoolAddress || '';
                 document.getElementById('set-logo').value = s.logoUrl || '';
                 document.getElementById('set-principal').value = s.principalName || '';
                 document.getElementById('set-principal-nip').value = s.principalNip || '';
@@ -1577,6 +1585,7 @@
             },
             saveSettings: function() {
                 this.data.settings.schoolName = document.getElementById('set-school').value;
+                this.data.settings.schoolAddress = document.getElementById('set-address').value;
                 this.data.settings.logoUrl = document.getElementById('set-logo').value;
                 this.data.settings.principalName = document.getElementById('set-principal').value;
                 this.data.settings.principalNip = document.getElementById('set-principal-nip').value;
