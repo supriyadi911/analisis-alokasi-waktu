@@ -779,19 +779,23 @@
                 }, 3000);
             },
 
-            openModal: function(id) {
+            openModal: function(id, isEdit = false) {
                 const modal = document.getElementById(id);
                 modal.classList.remove('hidden'); void modal.offsetWidth;
                 modal.classList.remove('opacity-0'); modal.firstElementChild.classList.remove('scale-95');
                 
-                // Pastikan input form (termasuk hidden ID) benar-benar dikosongkan saat menambah baru
-                if(id === 'modal-subject') {
-                    document.getElementById('form-subject').reset();
-                    document.getElementById('subj-id').value = ''; 
-                }
-                if(id === 'modal-topic') {
-                    document.getElementById('form-topic').reset();
-                    document.getElementById('topic-id').value = ''; 
+                // Pastikan input form dikosongkan HANYA SAAT menambah baru (bukan saat edit)
+                if (!isEdit) {
+                    if(id === 'modal-subject') {
+                        document.getElementById('form-subject').reset();
+                        document.getElementById('subj-id').value = ''; 
+                        document.getElementById('modal-subject-title').textContent = 'Tambah Mata Pelajaran';
+                    }
+                    if(id === 'modal-topic') {
+                        document.getElementById('form-topic').reset();
+                        document.getElementById('topic-id').value = ''; 
+                        document.getElementById('modal-topic-title').textContent = 'Tambah Materi / Tujuan Pembelajaran';
+                    }
                 }
             },
             closeModal: function(id) {
@@ -961,7 +965,7 @@
                     document.getElementById('subj-semester').value = s.semester || '1';
                     document.getElementById('subj-jp').value = s.jpPerWeek;
                     document.getElementById('subj-teacher').value = s.teacher;
-                    this.openModal('modal-subject');
+                    this.openModal('modal-subject', true);
                 }
             },
             deleteSubject: function(id) {
@@ -1077,7 +1081,7 @@
                     document.getElementById('topic-name').value = t.name;
                     document.getElementById('topic-est').value = t.estJp;
                     document.getElementById('topic-real').value = t.realJp;
-                    this.openModal('modal-topic');
+                    this.openModal('modal-topic', true);
                 }
             },
             deleteTopic: function(id) {
