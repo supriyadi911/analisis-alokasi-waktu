@@ -504,6 +504,7 @@
                             <!-- Baris 1: Filter -->
                             <div class="flex flex-col sm:flex-row gap-4">
                                 <select id="filter-report-semester" class="w-full sm:w-1/4 p-2.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-navy-500 focus:outline-none">
+                                    <option value="all">Semua Semester (1 Tahun)</option>
                                     <option value="1">Semester 1 (Ganjil)</option>
                                     <option value="2">Semester 2 (Genap)</option>
                                 </select>
@@ -1213,8 +1214,10 @@
                 const sem = document.getElementById('filter-report-semester').value;
                 const sel = document.getElementById('select-report-subject');
                 sel.innerHTML = '<option value="all">Semua Mata Pelajaran (Rekapitulasi + Detail Semua Mapel)</option>';
-                this.data.subjects.filter(s => s.semester === sem).forEach(s => {
-                    sel.innerHTML += `<option value="${s.id}">${s.name} - ${s.class}</option>`;
+                
+                const listSubj = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
+                listSubj.forEach(s => {
+                    sel.innerHTML += `<option value="${s.id}">${s.name} - ${s.class} (Smt ${s.semester})</option>`;
                 });
                 
                 document.getElementById('print-school-name').textContent = this.data.settings.schoolName;
@@ -1238,7 +1241,7 @@
             buildReportHTML: function(filter, sem) {
                 const container = document.getElementById('print-content');
                 let html = '';
-                document.getElementById('print-semester').textContent = sem === '1' ? '1 (Ganjil)' : '2 (Genap)';
+                document.getElementById('print-semester').textContent = sem === 'all' ? '1 Tahun (Ganjil & Genap)' : (sem === '1' ? '1 (Ganjil)' : '2 (Genap)');
 
                 if (filter === 'all') {
                     document.getElementById('print-mapel-name').textContent = 'Semua Mata Pelajaran';
@@ -1253,7 +1256,7 @@
                                     <tr class="bg-gray-100">
                                         <th class="border border-black p-2 w-12 text-center">No</th>
                                         <th class="border border-black p-2 text-left">Mata Pelajaran</th>
-                                        <th class="border border-black p-2 w-24 text-center">Kelas</th>
+                                        <th class="border border-black p-2 w-24 text-center">Kelas/Smt</th>
                                         <th class="border border-black p-2 w-24 text-center">Mg Efektif</th>
                                         <th class="border border-black p-2 w-24 text-center">Total JP</th>
                                         <th class="border border-black p-2 w-28 text-center">JP Terprogram</th>
@@ -1262,9 +1265,9 @@
                                 </thead>
                                 <tbody>`;
                     
-                    const filteredSubjects = this.data.subjects.filter(s => s.semester === sem);
+                    const filteredSubjects = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
                     if (filteredSubjects.length === 0) {
-                        html += `<tr><td colspan="7" class="border border-black p-4 text-center text-gray-500">Belum ada data mata pelajaran pada semester ini.</td></tr>`;
+                        html += `<tr><td colspan="7" class="border border-black p-4 text-center text-gray-500">Belum ada data mata pelajaran pada pilihan ini.</td></tr>`;
                     } else {
                         filteredSubjects.forEach((s, i) => {
                             let alloc = 0; 
@@ -1273,7 +1276,7 @@
                                 <tr>
                                     <td class="border border-black p-2 text-center">${i+1}</td>
                                     <td class="border border-black p-2">${s.name}</td>
-                                    <td class="border border-black p-2 text-center">${s.class}</td>
+                                    <td class="border border-black p-2 text-center">${s.class} <span class="text-xs">(Smt ${s.semester})</span></td>
                                     <td class="border border-black p-2 text-center">${s.effWeeks}</td>
                                     <td class="border border-black p-2 text-center font-semibold">${s.totalJp}</td>
                                     <td class="border border-black p-2 text-center">${alloc}</td>
@@ -1298,7 +1301,7 @@
                             html += `
                                 <div class="mb-8 ${mapelIndex > 0 ? 'print-page-break pt-6' : ''}">
                                     <div class="bg-gray-50 p-2 border border-black mb-2 flex justify-between items-center">
-                                        <span class="font-bold text-sm text-navy-900">${mapelIndex+1}. ${s.name.toUpperCase()} (Kelas ${s.class})</span>
+                                        <span class="font-bold text-sm text-navy-900">${mapelIndex+1}. ${s.name.toUpperCase()} (Kelas ${s.class} - Smt ${s.semester})</span>
                                         <span class="text-xs font-semibold">${s.jpPerWeek} JP/mgg &bull; ${s.effWeeks} mgg efektif &bull; Total ${s.totalJp} JP</span>
                                     </div>
                                     <table class="w-full border-collapse border border-black text-xs">
@@ -1345,6 +1348,7 @@
                     // JIKA DIPILIH SATU MAPEL SAJA
                     const subject = this.data.subjects.find(s => s.id == filter);
                     if(subject) {
+                        document.getElementById('print-semester').textContent = subject.semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
                         document.getElementById('print-mapel-name').textContent = subject.name;
                         document.getElementById('print-kelas').textContent = subject.class;
                         const topics = this.data.topics.filter(t => t.subjectId == subject.id);
@@ -1399,11 +1403,16 @@
             exportExcel: function() {
                 const sem = document.getElementById('filter-report-semester').value;
                 const filter = document.getElementById('select-report-subject').value;
-                const activeSemLabel = sem === '1' ? 'Ganjil' : 'Genap';
+                let activeSemLabel = sem === 'all' ? '1 Tahun (Ganjil & Genap)' : (sem === '1' ? 'Ganjil' : 'Genap');
                 
                 const wb = XLSX.utils.book_new();
                 const ws_data = [];
                 
+                if (filter !== 'all') {
+                    const subject = this.data.subjects.find(s => s.id == filter);
+                    if (subject) activeSemLabel = subject.semester === '1' ? 'Ganjil' : 'Genap';
+                }
+
                 // Kop Laporan Formal
                 ws_data.push([this.data.settings.schoolName.toUpperCase()]);
                 ws_data.push(["ANALISIS ALOKASI WAKTU PEMBELAJARAN GURU"]);
@@ -1412,16 +1421,16 @@
                 
                 if (filter === 'all') {
                     // Header Rekap
-                    ws_data.push(["No", "Mata Pelajaran", "Kelas", "Minggu Efektif", "Total JP Tersedia", "JP Terprogram", "Sisa JP"]);
+                    ws_data.push(["No", "Mata Pelajaran", "Kelas", "Semester", "Minggu Efektif", "Total JP Tersedia", "JP Terprogram", "Sisa JP"]);
                     
-                    const listSubj = this.data.subjects.filter(s => s.semester === sem);
+                    const listSubj = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
                     if(listSubj.length === 0) {
-                        ws_data.push(["-", "Belum ada data mata pelajaran pada semester ini.", "", "", "", "", ""]);
+                        ws_data.push(["-", "Belum ada data mata pelajaran pada pilihan ini.", "", "", "", "", "", ""]);
                     } else {
                         listSubj.forEach((s, i) => {
                             let alloc = 0; 
                             this.data.topics.filter(t => t.subjectId === s.id).forEach(t => alloc += t.estJp);
-                            ws_data.push([i+1, s.name, s.class, s.effWeeks, s.totalJp, alloc, s.totalJp - alloc]);
+                            ws_data.push([i+1, s.name, s.class, s.semester, s.effWeeks, s.totalJp, alloc, s.totalJp - alloc]);
                         });
                     }
                 } else {
@@ -1462,7 +1471,16 @@
                 const ws = XLSX.utils.aoa_to_sheet(ws_data);
                 
                 // Sesuaikan lebar kolom agar rapih tanpa teks terpotong (Auto Width)
-                const wscols = [
+                const wscols = filter === 'all' ? [
+                    {wch: 8},   // No
+                    {wch: 32},  // Mata Pelajaran
+                    {wch: 15},  // Kelas
+                    {wch: 15},  // Semester
+                    {wch: 20},  // Minggu Efektif
+                    {wch: 22},  // Total JP Tersedia
+                    {wch: 22},  // JP Terprogram
+                    {wch: 16}   // Sisa JP
+                ] : [
                     {wch: 8},   // No / Label
                     {wch: 32},  // Mata Pelajaran / Tujuan Pembelajaran
                     {wch: 38},  // Kelas / Materi Pokok
@@ -1476,7 +1494,7 @@
                 XLSX.utils.book_append_sheet(wb, ws, "Analisis Waktu");
                 
                 // Download file Excel
-                const fileName = `Laporan_Analisis_Waktu_${filter === 'all' ? 'Rekapitulasi' : 'Mapel'}_Smt_${sem}.xlsx`;
+                const fileName = `Laporan_Analisis_Waktu_${filter === 'all' ? 'Rekapitulasi' : 'Mapel'}_Smt_${sem === 'all' ? '1_Tahun' : sem}.xlsx`;
                 XLSX.writeFile(wb, fileName);
                 this.showToast('Laporan Excel formal berhasil diunduh!', 'success');
             },
