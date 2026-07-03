@@ -66,6 +66,12 @@
         .nav-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #eab308; color: white; }
         .dark .nav-item.active { border-left-color: #eab308; }
 
+        /* Drag and Drop Visual Feedback */
+        .drag-over {
+            border-top: 2px solid #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+        }
+
         @media print {
             @page { size: A4 portrait; margin: 1.5cm 1.5cm; }
             body { background-color: white !important; color: black !important; overflow: auto !important; height: auto !important; }
@@ -457,13 +463,13 @@
                                 <table class="w-full text-left border-collapse">
                                     <thead>
                                         <tr class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wider">
-                                            <th class="p-3 font-semibold w-12 text-center">No</th>
+                                            <th class="p-3 font-semibold w-12 text-center">Urut</th>
                                             <th class="p-3 font-semibold">Bab / Materi</th>
                                             <th class="p-3 font-semibold w-[35%]">Tujuan Pembelajaran</th>
                                             <th class="p-3 font-semibold text-center w-24">Estimasi JP</th>
                                             <th class="p-3 font-semibold text-center w-24">Realisasi JP</th>
                                             <th class="p-3 font-semibold text-center w-32">Status</th>
-                                            <th class="p-3 font-semibold text-center w-24">Aksi</th>
+                                            <th class="p-3 font-semibold text-center w-36">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="table-topics" class="text-sm text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
@@ -693,6 +699,7 @@
                 subjectCol: null,
                 subjectAsc: true
             },
+            draggedTopicId: null,
             charts: {},
 
             init: function() {
@@ -732,7 +739,7 @@
 
                 if(window.innerWidth < 768) document.getElementById('sidebar').classList.add('-translate-x-full');
 
-                const titles = { 'dashboard': 'Dashboard', 'subjects': 'Data Mata Pelajaran', 'analysis': 'Distribusi JP per Mapel', 'calendar': 'Kalender Minggu Efektif', 'statistics': 'Statistik & Visualisasi', 'report': 'Cetak Laporan', 'settings': 'Pengaturan Aplikasi' };
+                const titles = { 'dashboard': 'Dashboard', 'settings': 'Pengaturan Aplikasi', 'calendar': 'Kalender Minggu Efektif', 'subjects': 'Data Mata Pelajaran', 'analysis': 'Distribusi JP per Mapel', 'statistics': 'Statistik & Visualisasi', 'report': 'Cetak Laporan' };
                 document.getElementById('page-title').textContent = titles[pageId];
 
                 if(pageId === 'dashboard') this.renderDashboard();
@@ -1048,7 +1055,7 @@
                 }
             },
 
-            // --- ANALYSIS ---
+            // --- ANALYSIS & REORDER TOPICS ---
             renderAnalysisSelect: function() {
                 const sem = document.getElementById('filter-analysis-semester').value;
                 const sel = document.getElementById('select-analysis-subject');
@@ -1107,20 +1114,37 @@
                         else if (t.realJp > t.estJp) statusHtml = `<span class="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded dark:bg-orange-900/40 dark:text-orange-400" title="Lebih ${t.realJp-t.estJp} JP">Melebihi</span>`;
                         else statusHtml = `<span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded dark:bg-red-900/40 dark:text-red-400" title="Kurang ${t.estJp-t.realJp} JP">Kurang</span>`;
 
-                        tbody.innerHTML += `
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td class="p-3 text-center align-top">${i+1}</td>
-                                <td class="p-3 font-medium align-top">${t.name}</td>
-                                <td class="p-3 align-top">${t.kd}</td>
-                                <td class="p-3 text-center align-top font-semibold text-blue-600 dark:text-blue-400">${t.estJp}</td>
-                                <td class="p-3 text-center align-top font-semibold">${t.realJp}</td>
-                                <td class="p-3 text-center align-top">${statusHtml}</td>
-                                <td class="p-3 text-center align-top">
-                                    <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 mx-1 p-1"><i class="fas fa-edit"></i></button>
-                                    <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 mx-1 p-1"><i class="fas fa-trash"></i></button>
-                                </td>
-                            </tr>
+                        const isFirst = i === 0;
+                        const isLast = i === topics.length - 1;
+
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors transition-shadow duration-150';
+                        tr.setAttribute('draggable', 'true');
+                        tr.setAttribute('ondragstart', `app.dragStartTopic(event, ${t.id})`);
+                        tr.setAttribute('ondragend', `app.dragEndTopic(event)`);
+                        tr.setAttribute('ondragover', `app.dragOverTopic(event)`);
+                        tr.setAttribute('ondragleave', `app.dragLeaveTopic(event)`);
+                        tr.setAttribute('ondrop', `app.dropTopic(event, ${t.id})`);
+
+                        tr.innerHTML = `
+                            <td class="p-3 text-center align-middle cursor-grab active:cursor-grabbing text-gray-400 hover:text-navy-600 dark:hover:text-gold-500">
+                                <i class="fas fa-grip-vertical text-sm mr-1"></i>
+                                <span class="text-xs font-semibold">${i+1}</span>
+                            </td>
+                            <td class="p-3 font-medium align-top">${t.name}</td>
+                            <td class="p-3 align-top">${t.kd}</td>
+                            <td class="p-3 text-center align-top font-semibold text-blue-600 dark:text-blue-400">${t.estJp}</td>
+                            <td class="p-3 text-center align-top font-semibold">${t.realJp}</td>
+                            <td class="p-3 text-center align-top">${statusHtml}</td>
+                            <td class="p-3 text-center align-top flex justify-center items-center gap-1">
+                                <button onclick="app.moveTopic(${t.id}, 'up')" ${isFirst ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke atas"><i class="fas fa-arrow-up"></i></button>
+                                <button onclick="app.moveTopic(${t.id}, 'down')" ${isLast ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke bawah"><i class="fas fa-arrow-down"></i></button>
+                                <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
+                                <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 p-1.5" title="Edit Materi"><i class="fas fa-edit"></i></button>
+                                <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 p-1.5" title="Hapus"><i class="fas fa-trash"></i></button>
+                            </td>
                         `;
+                        tbody.appendChild(tr);
                     });
                 }
             },
@@ -1163,6 +1187,91 @@
                     this.data.topics = this.data.topics.filter(t => t.id != id);
                     this.saveData(); this.renderTopics(); this.showToast('Materi dihapus', 'success');
                 }
+            },
+
+            // --- DRAG AND DROP TOPIC LOGIC ---
+            dragStartTopic: function(e, id) {
+                this.draggedTopicId = id;
+                e.dataTransfer.effectAllowed = 'move';
+                e.target.classList.add('opacity-40');
+            },
+            dragEndTopic: function(e) {
+                e.target.classList.remove('opacity-40');
+                document.querySelectorAll('#table-topics tr').forEach(row => {
+                    row.classList.remove('drag-over');
+                });
+            },
+            dragOverTopic: function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                // Cari elemen TR terdekat ke atas
+                const tr = e.target.closest('tr');
+                if (tr) {
+                    tr.classList.add('drag-over');
+                }
+            },
+            dragLeaveTopic: function(e) {
+                const tr = e.target.closest('tr');
+                if (tr) {
+                    tr.classList.remove('drag-over');
+                }
+            },
+            dropTopic: function(e, targetId) {
+                e.preventDefault();
+                const tr = e.target.closest('tr');
+                if (tr) {
+                    tr.classList.remove('drag-over');
+                }
+
+                if (!this.draggedTopicId || String(this.draggedTopicId) === String(targetId)) return;
+                
+                let subjectTopics = this.data.topics.filter(t => t.subjectId === this.currentSubjectId);
+                const draggedIndex = subjectTopics.findIndex(t => String(t.id) === String(this.draggedTopicId));
+                const targetIndex = subjectTopics.findIndex(t => String(t.id) === String(targetId));
+                
+                if (draggedIndex === -1 || targetIndex === -1) return;
+                
+                // Ambil elemen yang diseret, hapus dari list
+                const [draggedItem] = subjectTopics.splice(draggedIndex, 1);
+                // Masukkan kembali di posisi baru
+                subjectTopics.splice(targetIndex, 0, draggedItem);
+                
+                // Kembalikan ke dalam array topics global
+                this.data.topics = this.data.topics.filter(t => t.subjectId !== this.currentSubjectId).concat(subjectTopics);
+                
+                this.saveData();
+                this.renderTopics();
+                this.showToast('Urutan materi berhasil diubah');
+            },
+
+            // --- BUTTONS ORDER TOPIC LOGIC (Up / Down) ---
+            moveTopic: function(id, direction) {
+                if (!this.currentSubjectId) return;
+                
+                let subjectTopics = this.data.topics.filter(t => t.subjectId === this.currentSubjectId);
+                const index = subjectTopics.findIndex(t => String(t.id) === String(id));
+                
+                if (index === -1) return;
+                
+                if (direction === 'up' && index > 0) {
+                    const temp = subjectTopics[index];
+                    subjectTopics[index] = subjectTopics[index - 1];
+                    subjectTopics[index - 1] = temp;
+                } else if (direction === 'down' && index < subjectTopics.length - 1) {
+                    const temp = subjectTopics[index];
+                    subjectTopics[index] = subjectTopics[index + 1];
+                    subjectTopics[index + 1] = temp;
+                } else {
+                    return; // Tidak ada perubahan
+                }
+                
+                // Kembalikan ke dalam array topics global
+                this.data.topics = this.data.topics.filter(t => t.subjectId !== this.currentSubjectId).concat(subjectTopics);
+                
+                this.saveData();
+                this.renderTopics();
+                this.showToast('Urutan materi berhasil diubah');
             },
 
             // --- CALENDAR ---
@@ -1573,9 +1682,6 @@
                     // JIKA DIPILIH SATU MAPEL SAJA
                     const subject = this.data.subjects.find(s => s.id == filter);
                     if(subject) {
-                        document.getElementById('print-semester').textContent = subject.semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
-                        document.getElementById('print-mapel-name').textContent = subject.name;
-                        document.getElementById('print-kelas').textContent = subject.class;
                         const topics = this.data.topics.filter(t => t.subjectId == subject.id);
                         
                         html += `<div class="print-page-break mt-10"></div>`;
