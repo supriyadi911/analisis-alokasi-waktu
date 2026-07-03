@@ -100,6 +100,7 @@
             tfoot { display: table-footer-group; }
             
             .print-page-break { page-break-before: always; }
+            .print-page-break-avoid { page-break-inside: avoid; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
@@ -773,6 +774,22 @@
                 }
             },
             saveData: function() { localStorage.setItem('waktuedu_data', JSON.stringify(this.data)); },
+            
+            generateDummyData: function() {
+                this.data.subjects = [
+                    { id: Date.now()+1, name: "Matematika", class: "VII A", semester: '1', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
+                    { id: Date.now()+2, name: "Matematika", class: "VII A", semester: '2', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
+                    { id: Date.now()+3, name: "IPA", class: "VII A", semester: '1', teacher: "", jpPerWeek: 5, effWeeks: 18, totalJp: 90 }
+                ];
+                let sId = this.data.subjects[0].id;
+                this.data.topics = [
+                    { id: Date.now()+4, subjectId: sId, kd: "TP 1", name: "Bilangan Bulat dan Pecahan", estJp: 16, realJp: 16 },
+                    { id: Date.now()+5, subjectId: sId, kd: "TP 2", name: "Himpunan", estJp: 12, realJp: 10 }
+                ];
+                this.calculateEffectiveWeeks('1');
+                this.calculateEffectiveWeeks('2');
+                this.saveData();
+            },
 
             showToast: function(msg, type='success') {
                 const container = document.getElementById('toast-container');
@@ -1346,14 +1363,68 @@
                 let html = '';
                 document.getElementById('print-semester').textContent = sem === 'all' ? '1 Tahun (Ganjil & Genap)' : (sem === '1' ? '1 (Ganjil)' : '2 (Genap)');
 
+                const semsToSearch = sem === 'all' ? ['1', '2'] : [sem];
+                
+                // 1. Ekstraksi Data Perhitungan Pekan & Kegiatan
+                let pekanData = [];
+                let totalPekan = 0;
+                let totalPekanTidakEfektif = 0;
+                let activities = [];
+
+                semsToSearch.forEach(sVal => {
+                    if (this.data.calendar[sVal]) {
+                        this.data.calendar[sVal].months.forEach(m => {
+                            let jmlPekan = m.weeks.length;
+                            let pekanTidakEfektif = 0;
+                            let kegiatanList = [];
+
+                            m.weeks.forEach(w => {
+                                if (w.status !== 'efektif') {
+                                    pekanTidakEfektif++;
+                                    let noteText = w.note && w.note.trim() !== '' ? w.note.trim() : (w.status === 'libur' ? 'Libur' : 'Ujian/Kegiatan');
+                                    
+                                    if (!kegiatanList.includes(noteText)) {
+                                        kegiatanList.push(noteText);
+                                    }
+
+                                    if (w.note && w.note.trim() !== '') {
+                                        activities.push({
+                                            semester: sVal === '1' ? 'Smt 1' : 'Smt 2',
+                                            month: m.name,
+                                            week: w.label,
+                                            note: noteText
+                                        });
+                                    }
+                                }
+                            });
+
+                            pekanData.push({
+                                bulan: m.name + (sem === 'all' ? ` (Smt ${sVal})` : ''),
+                                jmlPekan: jmlPekan,
+                                kegiatan: kegiatanList.join(', '),
+                                jmlPekanTidakEfektif: pekanTidakEfektif
+                            });
+
+                            totalPekan += jmlPekan;
+                            totalPekanTidakEfektif += pekanTidakEfektif;
+                        });
+                    }
+                });
+
+                let totalPekanEfektif = totalPekan - totalPekanTidakEfektif;
+
+                // Utilitas Penomoran Romawi Dinamis
+                let sectionCounter = 1;
+                const getRomawi = (num) => ["", "I", "II", "III", "IV", "V", "VI"][num];
+
+                // --- A. REKAPITULASI (Jika filter "Semua Mata Pelajaran") ---
                 if (filter === 'all') {
                     document.getElementById('print-mapel-name').textContent = 'Semua Mata Pelajaran';
                     document.getElementById('print-kelas').textContent = 'Semua Kelas';
                     
-                    // 1. REKAPITULASI UTAMA
                     html += `
-                        <div class="mb-8">
-                            <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">I. REKAPITULASI ALOKASI WAKTU SEMESTER</h4>
+                        <div class="mb-8 print-page-break-avoid">
+                            <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. REKAPITULASI ALOKASI WAKTU SEMESTER</h4>
                             <table class="w-full border-collapse border border-black text-sm">
                                 <thead>
                                     <tr class="bg-gray-100">
@@ -1391,18 +1462,116 @@
                                 </tbody>
                             </table>
                         </div>`;
+                } else {
+                    const subject = this.data.subjects.find(s => s.id == filter);
+                    if(subject) {
+                        document.getElementById('print-semester').textContent = subject.semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
+                        document.getElementById('print-mapel-name').textContent = subject.name;
+                        document.getElementById('print-kelas').textContent = subject.class;
+                    }
+                }
 
-                    // 2. RINCIAN MATERI DETAIL UNTUK SETIAP MAPEL
+                // --- B. TABEL PERHITUNGAN PEKAN DAN JAM EFEKTIF ---
+                let jpText = "(Bervariasi, lihat rekapitulasi per mata pelajaran)";
+                if (filter !== 'all') {
+                    const subject = this.data.subjects.find(s => s.id == filter);
+                    if (subject) {
+                        jpText = `${totalPekanEfektif} Pekan x ${subject.jpPerWeek} Jam Pelajaran = ${totalPekanEfektif * subject.jpPerWeek} Jam Pelajaran`;
+                    }
+                }
+
+                html += `
+                    <div class="mb-8 print-page-break-avoid">
+                        <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. PERHITUNGAN PEKAN DAN JAM EFEKTIF</h4>
+                        <h5 class="text-sm font-bold mb-1 uppercase">A. PERHITUNGAN JAM EFEKTIF</h5>
+                        <table class="w-full border-collapse border border-black text-xs text-center">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th colspan="3" class="border border-black p-1.5">I. JUMLAH PEKAN</th>
+                                    <th colspan="4" class="border border-black p-1.5">II. JUMLAH PEKAN TIDAK EFEKTIF</th>
+                                </tr>
+                                <tr class="bg-gray-100">
+                                    <th class="border border-black p-1.5 w-8">NO</th>
+                                    <th class="border border-black p-1.5 w-24">BULAN</th>
+                                    <th class="border border-black p-1.5 w-24">JML. PEKAN</th>
+                                    <th class="border border-black p-1.5 w-8">NO</th>
+                                    <th class="border border-black p-1.5 w-24">BULAN</th>
+                                    <th class="border border-black p-1.5">KEGIATAN</th>
+                                    <th class="border border-black p-1.5 w-24">JML. PEKAN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${pekanData.map((p, idx) => `
+                                    <tr>
+                                        <td class="border border-black p-1.5">${idx + 1}</td>
+                                        <td class="border border-black p-1.5 text-left">${p.bulan}</td>
+                                        <td class="border border-black p-1.5">${p.jmlPekan}</td>
+                                        <td class="border border-black p-1.5">${idx + 1}</td>
+                                        <td class="border border-black p-1.5 text-left">${p.bulan}</td>
+                                        <td class="border border-black p-1.5 text-left">${p.kegiatan}</td>
+                                        <td class="border border-black p-1.5">${p.jmlPekanTidakEfektif}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div class="mt-2 text-xs font-bold leading-relaxed">
+                            <table class="border-none w-full max-w-2xl text-left">
+                                <tr>
+                                    <td class="w-56 align-top">III. Banyaknya Pekan Efektif</td>
+                                    <td class="w-4 align-top">:</td>
+                                    <td>${totalPekan} - ${totalPekanTidakEfektif} = ${totalPekanEfektif} Pekan</td>
+                                </tr>
+                                <tr>
+                                    <td class="align-top">IV. Banyaknya Jam Pelajaran</td>
+                                    <td class="align-top">:</td>
+                                    <td>${jpText}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                // --- C. JADWAL KEGIATAN & UJIAN AKADEMIK ---
+                if (activities.length > 0) {
+                    html += `
+                        <div class="mb-8 print-page-break-avoid">
+                            <h4 class="text-md font-bold border-b-2 border-black pb-1 mb-3 uppercase">${getRomawi(sectionCounter++)}. JADWAL KEGIATAN & UJIAN AKADEMIK (MINGGU NON-EFEKTIF)</h4>
+                            <table class="w-full border-collapse border border-black text-xs">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="border border-black p-1.5 w-16 text-center">Semester</th>
+                                        <th class="border border-black p-1.5 w-24 text-center">Bulan</th>
+                                        <th class="border border-black p-1.5 w-20 text-center">Minggu</th>
+                                        <th class="border border-black p-1.5 text-left">Nama Kegiatan / Ujian</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${activities.map(act => `
+                                        <tr>
+                                            <td class="border border-black p-1.5 text-center">${act.semester}</td>
+                                            <td class="border border-black p-1.5 text-center">${act.month}</td>
+                                            <td class="border border-black p-1.5 text-center">${act.week}</td>
+                                            <td class="border border-black p-1.5">${act.note}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                }
+
+                // --- D. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL) ---
+                if (filter === 'all') {
+                    const filteredSubjects = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
                     if (filteredSubjects.length > 0) {
                         html += `<div class="print-page-break mt-10"></div>`;
-                        html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">II. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
+                        html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
                         
                         filteredSubjects.forEach((s, mapelIndex) => {
                             const topics = this.data.topics.filter(t => t.subjectId === s.id);
                             let totalAlloc = 0;
                             
                             html += `
-                                <div class="mb-8 ${mapelIndex > 0 ? 'print-page-break pt-6' : ''}">
+                                <div class="mb-8 ${mapelIndex > 0 ? 'print-page-break pt-6' : ''} print-page-break-avoid">
                                     <div class="bg-gray-50 p-2 border border-black mb-2 flex justify-between items-center">
                                         <span class="font-bold text-sm text-navy-900">${mapelIndex+1}. ${s.name.toUpperCase()} (Kelas ${s.class} - Smt ${s.semester})</span>
                                         <span class="text-xs font-semibold">${s.jpPerWeek} JP/mgg &bull; ${s.effWeeks} mgg efektif &bull; Total ${s.totalJp} JP</span>
@@ -1448,19 +1617,13 @@
                     }
 
                 } else {
-                    // JIKA DIPILIH SATU MAPEL SAJA
                     const subject = this.data.subjects.find(s => s.id == filter);
                     if(subject) {
-                        document.getElementById('print-semester').textContent = subject.semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
-                        document.getElementById('print-mapel-name').textContent = subject.name;
-                        document.getElementById('print-kelas').textContent = subject.class;
                         const topics = this.data.topics.filter(t => t.subjectId == subject.id);
                         
-                        html = `
-                            <div class="mb-4 text-sm font-semibold">
-                                <p>Perhitungan Jam Efektif: ${subject.jpPerWeek} JP/Minggu x ${subject.effWeeks} Minggu Efektif = ${subject.totalJp} JP Total Tersedia.</p>
-                            </div>
-                            <table class="w-full border-collapse border border-black text-sm">
+                        html += `<div class="print-page-break mt-10"></div>`;
+                        html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
+                        html += `<table class="w-full border-collapse border border-black text-sm print-page-break-avoid">
                                 <thead>
                                     <tr class="bg-gray-200">
                                         <th class="border border-black p-2 w-12 text-center">No</th>
@@ -1490,60 +1653,13 @@
                         }
                         html += `
                                     <tr class="font-bold bg-gray-100">
-                                        <td colspan="3" class="border border-black p-2 text-right">JUMLAH ALOKASI</td>
+                                        <td colspan="3" class="border border-black p-2 text-right">JUMLAH ALOKASI JP TERPROGRAM:</td>
                                         <td class="border border-black p-2 text-center">${totalAlloc} JP</td>
                                         <td class="border border-black p-2 text-center">${subject.totalJp - totalAlloc} JP (Sisa)</td>
                                     </tr>
                                 </tbody>
                             </table>`;
                     }
-                }
-
-                // Tambahkan Ringkasan Kegiatan / Ujian Non-Efektif untuk Laporan Cetak Resmi
-                const semsToSearch = sem === 'all' ? ['1', '2'] : [sem];
-                let activities = [];
-                semsToSearch.forEach(sVal => {
-                    if (this.data.calendar[sVal]) {
-                        this.data.calendar[sVal].months.forEach(m => {
-                            m.weeks.forEach(w => {
-                                if (w.status === 'ujian' && w.note && w.note.trim() !== '') {
-                                    activities.push({
-                                        semester: sVal === '1' ? 'Smt 1' : 'Smt 2',
-                                        month: m.name,
-                                        week: w.label,
-                                        note: w.note
-                                    });
-                                }
-                            });
-                        });
-                    }
-                });
-
-                if (activities.length > 0) {
-                    html += `
-                        <div class="mt-8">
-                            <h4 class="text-sm font-bold border-b border-black pb-1 mb-3 uppercase">Jadwal Kegiatan & Ujian Akademik (Minggu Non-Efektif)</h4>
-                            <table class="w-full border-collapse border border-black text-xs">
-                                <thead>
-                                    <tr class="bg-gray-100">
-                                        <th class="border border-black p-1.5 w-16 text-center">Semester</th>
-                                        <th class="border border-black p-1.5 w-24 text-center">Bulan</th>
-                                        <th class="border border-black p-1.5 w-20 text-center">Minggu</th>
-                                        <th class="border border-black p-1.5 text-left">Nama Kegiatan / Ujian</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${activities.map(act => `
-                                        <tr>
-                                            <td class="border border-black p-1.5 text-center">${act.semester}</td>
-                                            <td class="border border-black p-1.5 text-center">${act.month}</td>
-                                            <td class="border border-black p-1.5 text-center">${act.week}</td>
-                                            <td class="border border-black p-1.5">${act.note}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>`;
                 }
 
                 container.innerHTML = html;
