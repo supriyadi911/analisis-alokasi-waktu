@@ -1139,7 +1139,7 @@
                             <td class="p-3 text-center align-top flex justify-center items-center gap-1">
                                 <button onclick="app.moveTopic(${t.id}, 'up')" ${isFirst ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke atas"><i class="fas fa-arrow-up"></i></button>
                                 <button onclick="app.moveTopic(${t.id}, 'down')" ${isLast ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke bawah"><i class="fas fa-arrow-down"></i></button>
-                                <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
+                                <span class="text-gray-300 dark:text-gray-300 mx-1">|</span>
                                 <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 p-1.5" title="Edit Materi"><i class="fas fa-edit"></i></button>
                                 <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 p-1.5" title="Hapus"><i class="fas fa-trash"></i></button>
                             </td>
@@ -1516,7 +1516,37 @@
                 let sectionCounter = 1;
                 const getRomawi = (num) => ["", "I", "II", "III", "IV", "V", "VI"][num];
 
-                // --- A. TABEL PERHITUNGAN PEKAN DAN JAM EFEKTIF ---
+                // --- DATA FILTER MATA PELAJARAN YANG AKTIF ---
+                const filteredSubjects = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
+
+                // --- A. SET DATA HEADER SECARA FLEKSIBEL ---
+                if (filter === 'all') {
+                    // Judul Fleksibel mengikuti Semester
+                    document.getElementById('print-mapel-name').textContent = sem === 'all' ? 'Semua Mata Pelajaran (1 Tahun)' : `Semua Mata Pelajaran (Semester ${sem})`;
+                    
+                    // Hitung kelas unik dari list mapel terfilter
+                    const uniqueClasses = [...new Set(filteredSubjects.map(s => s.class))];
+                    let kelasText = 'Semua Kelas';
+                    if (uniqueClasses.length === 1) {
+                        kelasText = `Kelas ${uniqueClasses[0]}`;
+                    } else if (uniqueClasses.length > 1 && uniqueClasses.length <= 3) {
+                        kelasText = `Kelas ${uniqueClasses.join(', ')}`;
+                    } else if (uniqueClasses.length > 3) {
+                        kelasText = 'Semua Kelas';
+                    } else {
+                        kelasText = '-';
+                    }
+                    document.getElementById('print-kelas').textContent = kelasText;
+                } else {
+                    const subject = this.data.subjects.find(s => s.id == filter);
+                    if(subject) {
+                        document.getElementById('print-semester').textContent = subject.semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
+                        document.getElementById('print-mapel-name').textContent = subject.name;
+                        document.getElementById('print-kelas').textContent = `Kelas ${subject.class}`;
+                    }
+                }
+
+                // --- B. TABEL PERHITUNGAN PEKAN DAN JAM EFEKTIF ---
                 let jpText = "(Bervariasi, lihat rekapitulasi per mata pelajaran)";
                 if (filter !== 'all') {
                     const subject = this.data.subjects.find(s => s.id == filter);
@@ -1576,11 +1606,8 @@
                     </div>
                 `;
 
-                // --- B. REKAPITULASI & C. DETAIL MAPEL ---
+                // --- C. REKAPITULASI & D. DETAIL MAPEL ---
                 if (filter === 'all') {
-                    document.getElementById('print-mapel-name').textContent = 'Semua Mata Pelajaran';
-                    document.getElementById('print-kelas').textContent = 'Semua Kelas';
-                    
                     // REKAPITULASI UTAMA
                     html += `
                         <div class="mb-8 print-page-break-avoid">
@@ -1599,7 +1626,6 @@
                                 </thead>
                                 <tbody>`;
                     
-                    const filteredSubjects = sem === 'all' ? this.data.subjects : this.data.subjects.filter(s => s.semester === sem);
                     if (filteredSubjects.length === 0) {
                         html += `<tr><td colspan="7" class="border border-black p-4 text-center text-gray-500">Belum ada data mata pelajaran pada pilihan ini.</td></tr>`;
                     } else {
