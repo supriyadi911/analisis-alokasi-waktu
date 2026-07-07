@@ -73,24 +73,41 @@
         }
 
         @media print {
-            @page { size: A4 portrait; margin: 1.5cm 1.5cm; }
-            body { background-color: white !important; color: black !important; overflow: auto !important; height: auto !important; }
+            @page { size: A4 portrait; margin: 1cm; }
+            html, body { 
+                background-color: white !important; 
+                color: black !important; 
+                overflow: visible !important; 
+                height: auto !important; 
+                min-height: 100% !important;
+                margin: 0 !important; 
+                padding: 0 !important; 
+            }
             
             /* Sembunyikan elemen UI */
             #sidebar, header, .no-print, #loading, #toast-container { display: none !important; }
             
-            /* Reset struktur flex/grid layar utama agar mengalir ke bawah (flow normal) */
-            .flex.h-screen { height: auto !important; display: block !important; }
-            main { display: block !important; height: auto !important; overflow: visible !important; background: white !important; }
-            #pages-container { display: block !important; height: auto !important; overflow: visible !important; padding: 0 !important; }
+            /* Reset struktur flex/grid layar utama agar mengalir alami layaknya dokumen Word */
+            .flex.h-screen, .flex-1, main, #pages-container { 
+                display: block !important; 
+                height: auto !important; 
+                min-height: auto !important;
+                width: 100% !important;
+                overflow: visible !important; 
+                position: static !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
             
             /* Tampilkan HANYA halaman laporan */
             .page-section { display: none !important; }
             #page-report { display: block !important; }
             
-            /* Format area cetak (Hilangkan padding bayangan, biarkan 100% lebar kertas) */
+            /* Format area cetak */
             #print-area { 
-                position: relative !important;
+                position: static !important;
+                display: block !important;
                 visibility: visible;
                 box-shadow: none !important; 
                 padding: 0 !important; 
@@ -102,11 +119,10 @@
             /* Perilaku cerdas tabel di multi-halaman */
             table { page-break-inside: auto; width: 100%; border-collapse: collapse; }
             tr { page-break-inside: avoid; page-break-after: auto; }
+            td, th { page-break-inside: avoid; word-wrap: break-word; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             
-            /* Hanya gunakan jika benar-benar butuh paksaan pindah halaman */
-            .print-page-break { page-break-before: always; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
@@ -579,14 +595,14 @@
                         <!-- Data Table (Injected by JS) -->
                         <div id="print-content" class="min-h-[400px]"></div>
 
-                        <div class="mt-16 flex justify-between px-8 sm:px-16">
+                        <div class="mt-8 flex justify-between px-8 sm:px-16 print-avoid-break" style="page-break-inside: avoid;">
                             <div class="text-center w-auto min-w-[200px]">
-                                <p class="mb-20 leading-relaxed">Mengetahui,<br>Kepala Sekolah</p>
+                                <p class="mb-16 leading-relaxed">Mengetahui,<br>Kepala Sekolah</p>
                                 <p class="font-bold underline uppercase tracking-wide" id="print-principal-name">(...................................)</p>
                                 <p class="mt-1 text-sm">NIP. <span id="print-principal-nip"></span></p>
                             </div>
                             <div class="text-center w-auto min-w-[200px]">
-                                <p class="mb-20 leading-relaxed"><br>Guru Mata Pelajaran,</p>
+                                <p class="mb-16 leading-relaxed"><br>Guru Mata Pelajaran,</p>
                                 <p class="font-bold underline uppercase tracking-wide" id="print-teacher-name">Nama Guru</p>
                                 <p class="mt-1 text-sm">NIP. <span id="print-teacher-nip"></span></p>
                             </div>
@@ -791,22 +807,6 @@
                 }
             },
             saveData: function() { localStorage.setItem('waktuedu_data', JSON.stringify(this.data)); },
-            
-            generateDummyData: function() {
-                this.data.subjects = [
-                    { id: Date.now()+1, name: "Matematika", class: "VII A", semester: '1', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
-                    { id: Date.now()+2, name: "Matematika", class: "VII A", semester: '2', teacher: "", jpPerWeek: 4, effWeeks: 18, totalJp: 72 },
-                    { id: Date.now()+3, name: "IPA", class: "VII A", semester: '1', teacher: "", jpPerWeek: 5, effWeeks: 18, totalJp: 90 }
-                ];
-                let sId = this.data.subjects[0].id;
-                this.data.topics = [
-                    { id: Date.now()+4, subjectId: sId, kd: "TP 1", name: "Bilangan Bulat dan Pecahan", estJp: 16, realJp: 16 },
-                    { id: Date.now()+5, subjectId: sId, kd: "TP 2", name: "Himpunan", estJp: 12, realJp: 10 }
-                ];
-                this.calculateEffectiveWeeks('1');
-                this.calculateEffectiveWeeks('2');
-                this.saveData();
-            },
 
             showToast: function(msg, type='success') {
                 const container = document.getElementById('toast-container');
@@ -1149,7 +1149,7 @@
                             <td class="p-3 text-center align-top flex justify-center items-center gap-1">
                                 <button onclick="app.moveTopic(${t.id}, 'up')" ${isFirst ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke atas"><i class="fas fa-arrow-up"></i></button>
                                 <button onclick="app.moveTopic(${t.id}, 'down')" ${isLast ? 'disabled' : ''} class="text-gray-400 hover:text-navy-600 dark:hover:text-gold-500 disabled:opacity-30 disabled:pointer-events-none p-1.5" title="Pindahkan ke bawah"><i class="fas fa-arrow-down"></i></button>
-                                <span class="text-gray-300 dark:text-gray-300 mx-1">|</span>
+                                <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
                                 <button onclick="app.editTopic(${t.id})" class="text-blue-500 hover:text-blue-700 p-1.5" title="Edit Materi"><i class="fas fa-edit"></i></button>
                                 <button onclick="app.deleteTopic(${t.id})" class="text-red-500 hover:text-red-700 p-1.5" title="Hapus"><i class="fas fa-trash"></i></button>
                             </td>
