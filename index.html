@@ -105,8 +105,8 @@
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             
+            /* Hanya gunakan jika benar-benar butuh paksaan pindah halaman */
             .print-page-break { page-break-before: always; }
-            .print-page-break-avoid { page-break-inside: avoid; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
@@ -1574,7 +1574,7 @@
                 }
 
                 html += `
-                    <div class="mb-8 print-page-break-avoid">
+                    <div class="mb-8">
                         <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. PERHITUNGAN PEKAN DAN JAM EFEKTIF</h4>
                         <h5 class="text-sm font-bold mb-1 uppercase">PERHITUNGAN JAM EFEKTIF</h5>
                         <table class="w-full border-collapse border border-black text-xs text-center">
@@ -1628,7 +1628,7 @@
                 if (filter === 'all') {
                     // REKAPITULASI UTAMA
                     html += `
-                        <div class="mb-8 print-page-break-avoid">
+                        <div class="mb-8">
                             <h4 class="text-md font-bold mb-3 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. REKAPITULASI ALOKASI WAKTU SEMESTER</h4>
                             <table class="w-full border-collapse border border-black text-sm">
                                 <thead>
@@ -1669,7 +1669,7 @@
 
                     // RINCIAN MATERI DETAIL UNTUK SETIAP MAPEL
                     if (filteredSubjects.length > 0) {
-                        html += `<div class="print-page-break mt-10"></div>`;
+                        html += `<div class="mt-8"></div>`;
                         html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
                         
                         filteredSubjects.forEach((s, mapelIndex) => {
@@ -1677,7 +1677,7 @@
                             let totalAlloc = 0;
                             
                             html += `
-                                <div class="mb-8 ${mapelIndex > 0 ? 'print-page-break pt-6' : ''} print-page-break-avoid">
+                                <div class="mb-8 ${mapelIndex > 0 ? 'mt-8 pt-4 border-t border-dashed border-gray-400' : ''}">
                                     <div class="bg-gray-50 p-2 border border-black mb-2 flex justify-between items-center">
                                         <span class="font-bold text-sm text-navy-900">${mapelIndex+1}. ${s.name.toUpperCase()} (Kelas ${s.class} - Smt ${s.semester})</span>
                                         <span class="text-xs font-semibold">${s.jpPerWeek} JP/mgg &bull; ${s.effWeeks} mgg efektif &bull; Total ${s.totalJp} JP</span>
@@ -1728,9 +1728,9 @@
                     if(subject) {
                         const topics = this.data.topics.filter(t => t.subjectId == subject.id);
                         
-                        html += `<div class="print-page-break mt-10"></div>`;
+                        html += `<div class="mt-8"></div>`;
                         html += `<h4 class="text-md font-bold mb-4 border-b-2 border-black pb-1 uppercase">${getRomawi(sectionCounter++)}. RINCIAN MATERI & TUJUAN PEMBELAJARAN (DETAIL)</h4>`;
-                        html += `<table class="w-full border-collapse border border-black text-sm print-page-break-avoid">
+                        html += `<table class="w-full border-collapse border border-black text-sm">
                                 <thead>
                                     <tr class="bg-gray-200">
                                         <th class="border border-black p-2 w-12 text-center">No</th>
