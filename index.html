@@ -377,7 +377,7 @@
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Pemetaan Minggu Efektif</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Pilih semester, lalu klik kotak minggu untuk mengubah status.</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Pilih semester, lalu klik kotak minggu untuk mengubah status (catatan : ideal/minimal jumlah minggu efektif adalah 36 minggu).</p>
                             </div>
                             <div class="flex flex-col md:items-end gap-2">
                                 <select id="filter-calendar-semester" onchange="app.renderCalendar()" class="p-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -407,21 +407,28 @@
                 <!-- PAGE: MATA PELAJARAN -->
                 <section id="page-subjects" class="page-section hidden">
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <div class="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
-                                <div class="relative w-full sm:w-64">
-                                    <input type="text" id="search-subject" placeholder="Cari Mapel..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-navy-500 transition-colors">
-                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                </div>
-                                <select id="filter-subject-semester" onchange="app.renderSubjectsTable()" class="p-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-navy-500">
-                                    <option value="all">Semua Semester</option>
-                                    <option value="1">Semester 1 (Ganjil)</option>
-                                    <option value="2">Semester 2 (Genap)</option>
-                                </select>
+                        <div class="p-6 border-b border-gray-100 dark:border-gray-700">
+                            <div class="mb-4">
+                                <a href="https://drive.google.com/file/d/1EEMsOc3OBFI-nJCeBGCHMFtIY9AJQd3D/view" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900/50 rounded-lg text-sm font-medium transition-colors">
+                                    <i class="fas fa-external-link-alt mr-2"></i> Sumber Perhitungan JP INTRAKURIKULER
+                                </a>
                             </div>
-                            <button onclick="app.openModal('modal-subject')" class="w-full sm:w-auto px-4 py-2 bg-navy-800 hover:bg-navy-900 text-white rounded-lg flex items-center justify-center transition-colors shadow-md shadow-navy-800/20">
-                                <i class="fas fa-plus mr-2"></i> Tambah Mapel
-                            </button>
+                            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div class="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
+                                    <div class="relative w-full sm:w-64">
+                                        <input type="text" id="search-subject" placeholder="Cari Mapel..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-navy-500 transition-colors">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                    </div>
+                                    <select id="filter-subject-semester" onchange="app.renderSubjectsTable()" class="p-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-navy-500">
+                                        <option value="all">Semua Semester</option>
+                                        <option value="1">Semester 1 (Ganjil)</option>
+                                        <option value="2">Semester 2 (Genap)</option>
+                                    </select>
+                                </div>
+                                <button onclick="app.openModal('modal-subject')" class="w-full sm:w-auto px-4 py-2 bg-navy-800 hover:bg-navy-900 text-white rounded-lg flex items-center justify-center transition-colors shadow-md shadow-navy-800/20">
+                                    <i class="fas fa-plus mr-2"></i> Tambah Mapel
+                                </button>
+                            </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
